@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalkulator HPP — Bengkel Multiplex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root {
+    /* ===== TOKEN WARNA: "papan kayu dengan sealer" ===== */
+    --wood-bg: #EFE6D8;        /* krem kayu muda - background utama */
+    --wood-bg-soft: #F7F1E6;   /* lebih muda, untuk card */
+    --wood-deep: #3A2A1C;      /* coklat tua - teks utama */
+    --wood-mid: #8B5A3C;       /* coklat kayu sedang */
+    --rust: #A8492F;           /* terracotta gelap - aksen utama/CTA */
+    --rust-deep: #8A3A24;
+    --rust-soft: #F3E0D4;      /* terracotta pucat untuk fill lembut */
+    --moss: #5C7A52;           /* hijau lumut - sukses/uang */
+    --moss-soft: #E5EDDF;
+    --ink-soft: #6E5C4A;       /* abu-coklat untuk teks sekunder */
+    --line: #DDCBAF;           /* garis pemisah, seperti urat kayu */
+    --line-strong: #C7AE89;
+    --gold: #C08A3E;           /* untuk highlight angka penting */
+    --danger: #A8492F;
+    --shadow-wood: 0 2px 0 rgba(58,42,28,0.06), 0 8px 24px rgba(58,42,28,0.08);
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    background: var(--wood-bg);
+    background-image:
+      repeating-linear-gradient(180deg, rgba(58,42,28,0.018) 0px, transparent 1px, transparent 22px),
+      radial-gradient(ellipse 1200px 600px at 50% -10%, rgba(168,73,47,0.06), transparent);
+    color: var(--wood-deep);
+    font-size: 14px;
+    line-height: 1.55;
+    padding-bottom: 70px;
+    min-height: 100vh;
+  }
+
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 32px 22px; }
+
+  /* ===== HEADER ===== */
+  header { margin-bottom: 26px; position: relative; }
+  header h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 32px; font-weight: 700; letter-spacing: -0.01em;
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    color: var(--wood-deep);
+  }
+  header h1 .chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 500; background: var(--rust); color: #fff;
+    padding: 4px 11px; border-radius: 20px; letter-spacing: 0.02em;
+    vertical-align: middle; transform: translateY(-3px);
+  }
+  header p {
+    color: var(--ink-soft); font-size: 13.5px; margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.01em;
+  }
+
+  /* sync status badge */
+  .sync-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+    padding: 5px 11px; border-radius: 20px; margin-top: 10px;
+    border: 1px solid var(--line-strong);
+  }
+  .sync-badge .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .sync-badge.online { background: var(--moss-soft); color: #3F5C37; border-color: #C9DCC0; }
+  .sync-badge.online .dot { background: var(--moss); }
+  .sync-badge.offline { background: var(--rust-soft); color: var(--rust-deep); border-color: #E0C0AC; }
+  .sync-badge.offline .dot { background: var(--rust); animation: pulse 1.4s infinite; }
+  .sync-badge.syncing .dot { background: var(--gold); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* signature: garis ukur seperti meteran tukang */
+  .ruler {
+    height: 14px; margin: 22px 0 26px;
+    background-image: repeating-linear-gradient(90deg, var(--line-strong) 0, var(--line-strong) 1px, transparent 1px, transparent 10px);
+    background-size: 10px 100%;
+    background-position: left top;
+    position: relative;
+    border-bottom: 2px solid var(--line-strong);
+  }
+  .ruler::before, .ruler::after { display: none; }
+  .ruler .tick-major {
+    position: absolute; bottom: 0; width: 1px; height: 14px; background: var(--wood-mid);
+  }
+
+  /* ===== NAV ===== */
+  .nav { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
+  .nav-btn {
+    padding: 10px 18px; border: none; background: var(--wood-bg-soft); cursor: pointer;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13.5px; font-weight: 600; color: var(--ink-soft);
+    border-radius: 9px; border: 1.5px solid transparent;
+    transition: all 0.18s ease;
+  }
+  .nav-btn:hover { background: var(--rust-soft); color: var(--rust-deep); }
+  .nav-btn.active {
+    background: var(--wood-deep); color: var(--wood-bg-soft);
+    box-shadow: var(--shadow-wood);
+  }
+
+  .page { display: none; }
+  .page.active { display: block; animation: fadeUp 0.25s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ===== CARD ===== */
+  .card {
+    background: var(--wood-bg-soft);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow-wood);
+    position: relative;
+  }
+  h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 17px; font-weight: 600; margin-bottom: 16px; color: var(--wood-deep);
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  h2 .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 500; color: var(--ink-soft); letter-spacing: 0.01em;
+  }
+
+  .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; color: var(--ink-soft); font-weight: 500;
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  input, select, textarea {
+    width: 100%; padding: 9px 12px; border: 1.5px solid var(--line);
+    border-radius: 8px; background: #fff; color: var(--wood-deep); font-size: 13.5px;
+    font-family: 'Space Grotesk', sans-serif;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--rust);
+    box-shadow: 0 0 0 3px rgba(168,73,47,0.12);
+  }
+  input[readonly] { background: var(--wood-bg); color: var(--ink-soft); }
+  input.input-error { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(168,73,47,0.12); }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    padding: 10px 18px; border-radius: 9px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; font-family: 'Space Grotesk', sans-serif;
+    transition: all 0.16s ease; letter-spacing: 0.01em;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--rust); color: #fff;
+    box-shadow: 0 2px 0 var(--rust-deep);
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--rust-deep); transform: translateY(1px); box-shadow: 0 1px 0 var(--rust-deep); }
+  .btn-secondary { background: var(--rust-soft); color: var(--rust-deep); }
+  .btn-secondary:hover:not(:disabled) { background: #ecd0bd; }
+  .btn-ghost { background: none; border: 1.5px solid var(--line-strong); color: var(--ink-soft); }
+  .btn-ghost:hover:not(:disabled) { background: var(--wood-bg); border-color: var(--wood-mid); color: var(--wood-deep); }
+  .btn-danger { background: none; border: 1.5px solid var(--line); color: var(--danger); padding: 5px 10px; font-size: 12px; border-radius: 7px; cursor: pointer; }
+  .btn-danger:hover { background: var(--rust-soft); border-color: var(--rust); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn-icon { background: none; border: 1.5px solid var(--line); color: var(--ink-soft); padding: 5px 9px; font-size: 12px; border-radius: 7px; cursor: pointer; }
+  .btn-icon:hover { background: var(--wood-bg); color: var(--wood-deep); }
+  .btn-moss { background: var(--moss); color: #fff; box-shadow: 0 2px 0 #4a6440; }
+  .btn-moss:hover:not(:disabled) { background: #4a6440; transform: translateY(1px); box-shadow: 0 1px 0 #4a6440; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
+  .grid5 { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr; gap: 14px; }
+  .grid6 { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr 0.7fr; gap: 14px; }
+
+  .divider { border: none; border-top: 1.5px dashed var(--line-strong); margin: 18px 0; }
+
+  /* ===== PRODUCT SELECTOR ===== */
+  .product-select-wrap { position: relative; margin-bottom: 22px; }
+  .product-select {
+    width: 100%; padding: 16px 20px; font-size: 16px; font-weight: 600;
+    font-family: 'Fraunces', serif;
+    border: 2px solid var(--wood-deep); border-radius: var(--radius);
+    background: var(--wood-deep); color: var(--wood-bg-soft); cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    box-shadow: var(--shadow-wood);
+  }
+  .product-select-wrap::after {
+    content: '▾'; position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+    color: var(--wood-bg-soft); font-size: 16px; pointer-events: none;
+  }
+
+  /* ===== TABLE ===== */
+  table.bahan-table { width: 100%; border-collapse: collapse; }
+  table.bahan-table th {
+    text-align: left; font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--ink-soft); font-weight: 600; padding: 10px 10px; border-bottom: 2px solid var(--line-strong);
+  }
+  table.bahan-table td { padding: 11px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; font-size: 13px; }
+  table.bahan-table tr.editing td { background: var(--rust-soft); }
+  table.bahan-table tr:hover td { background: rgba(168,73,47,0.04); }
+  table.bahan-table tr.editing:hover td { background: var(--rust-soft); }
+
+  .badge {
+    display: inline-block; font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px; padding: 4px 10px; border-radius: 20px; font-weight: 600;
+    white-space: nowrap; letter-spacing: 0.02em; text-transform: uppercase;
+  }
+  .badge-lembaran { background: #DCE8F0; color: #2D5D8A; }
+  .badge-linear { background: var(--moss-soft); color: #3F5C37; }
+  .badge-batang { background: var(--rust-soft); color: var(--rust-deep); }
+  .badge-pack { background: #EFE0F0; color: #834A83; }
+  .badge-satuan { background: #FBEAC8; color: #9A6B1E; }
+
+  .row-item {
+    display: grid; grid-template-columns: 1.6fr 0.9fr 1.3fr 1.1fr 32px;
+    gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line);
+  }
+  .row-item:last-child { border-bottom: none; }
+  .row-item-header {
+    display: grid; grid-template-columns: 1.6fr 0.9fr 1.3fr 1.1fr 32px;
+    gap: 12px; font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--ink-soft); font-weight: 600; padding-bottom: 8px; border-bottom: 2px solid var(--line-strong); margin-bottom: 2px;
+  }
+  .bahan-nama { font-size: 13.5px; font-weight: 600; color: var(--wood-deep); }
+  .bahan-harga { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft); margin-top: 1px; }
+  .biaya-val { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; font-weight: 700; text-align: right; color: var(--wood-deep); }
+  .note { font-size: 11px; color: var(--ink-soft); }
+
+  .empty-state {
+    text-align: center; padding: 32px 20px; color: var(--ink-soft); font-size: 13px;
+    background: repeating-linear-gradient(135deg, var(--wood-bg) 0px, var(--wood-bg) 10px, var(--wood-bg-soft) 10px, var(--wood-bg-soft) 20px);
+    border-radius: 9px; border: 1.5px dashed var(--line-strong);
+  }
+
+  .info-strip { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0; }
+  .info-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; background: var(--wood-bg); color: var(--ink-soft);
+    padding: 5px 11px; border-radius: 7px; border: 1px solid var(--line);
+  }
+
+  .hpp-summary {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    padding-top: 16px; flex-wrap: wrap; gap: 18px;
+  }
+  .hpp-total-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 30px; font-weight: 700; color: var(--moss); letter-spacing: -0.01em;
+  }
+  .hpp-sub { text-align: right; }
+  .hpp-sub-val { font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 700; color: var(--wood-deep); }
+
+  .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .filter-bar input[type=text] { flex: 1; min-width: 160px; }
+  .filter-bar select { width: auto; min-width: 150px; }
+  .sort-btn {
+    padding: 8px 13px; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; border: 1.5px solid var(--line-strong); border-radius: 7px;
+    background: #fff; cursor: pointer; color: var(--ink-soft); white-space: nowrap; font-weight: 600;
+    transition: all 0.15s;
+  }
+  .sort-btn:hover { border-color: var(--wood-mid); }
+  .sort-btn.active { background: var(--wood-deep); color: var(--wood-bg-soft); border-color: var(--wood-deep); }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(58,42,28,0.5);
+    backdrop-filter: blur(2px);
+    z-index: 100; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-box {
+    background: var(--wood-bg-soft); border-radius: 16px; padding: 24px; width: 100%; max-width: 500px;
+    max-height: 82vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(58,42,28,0.3);
+    border: 1px solid var(--line);
+  }
+  .modal-box.wide { max-width: 700px; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .modal-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--line);
+  }
+  .modal-item:last-child { border-bottom: none; }
+
+  .rekap-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .rekap-row:last-child { border-bottom: none; }
+  .rekap-name { font-weight: 600; font-family: 'Fraunces', serif; font-size: 15px; }
+  .rekap-val { font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 700; color: var(--moss); }
+  .rekap-empty { color: var(--ink-soft); font-size: 13px; font-style: italic; }
+
+  .tip-box {
+    background: var(--rust-soft); border: 1px solid #E0C0AC; border-radius: 10px;
+    padding: 13px 16px; font-size: 12px; color: var(--rust-deep); margin-bottom: 18px;
+  }
+  .tip-box b { color: var(--wood-deep); }
+
+  .download-bar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+
+  ::-webkit-scrollbar { width: 9px; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 5px; }
+
+  /* ===== FITUR: toggle, compare, BEP, riwayat, print ===== */
+  .toggle-group { display: flex; gap: 0; border: 1.5px solid var(--line-strong); border-radius: 9px; overflow: hidden; width: fit-content; }
+  .toggle-opt { padding: 8px 18px; font-size: 12.5px; font-weight: 600; cursor: pointer; background: #fff; color: var(--ink-soft); border: none; font-family: 'Space Grotesk', sans-serif; }
+  .toggle-opt.active { background: var(--wood-deep); color: var(--wood-bg-soft); }
+
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+  .compare-box { border: 1.5px solid var(--line); border-radius: 10px; padding: 16px; background: #fff; transition: all 0.2s; }
+  .compare-box.highlight { border-color: var(--rust); background: var(--rust-soft); }
+  .compare-box h4 { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; margin-bottom: 9px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+  .compare-val { font-family: 'JetBrains Mono', monospace; font-size: 21px; font-weight: 700; color: var(--wood-deep); }
+  .compare-note { font-size: 11px; color: var(--ink-soft); margin-top: 6px; }
+
+  .bep-result {
+    background: linear-gradient(135deg, var(--rust-soft), var(--wood-bg-soft));
+    border: 1.5px solid #E0C0AC; border-radius: 12px;
+    padding: 18px 20px; margin-top: 16px;
+  }
+  .bep-result .bep-num { font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: 700; color: var(--rust-deep); }
+  .bep-result .bep-label { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+
+  .history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 12px; gap: 10px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-old { color: var(--danger); text-decoration: line-through; font-family: 'JetBrains Mono', monospace; }
+  .history-new { color: var(--moss); font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .history-date { color: var(--ink-soft); font-size: 10.5px; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+
+  /* ===== RIWAYAT HPP (snapshot per varian) ===== */
+  .snap-card {
+    border: 1.5px solid var(--line); border-radius: 12px; padding: 16px 18px;
+    margin-bottom: 12px; background: #fff; transition: border-color 0.15s;
+  }
+  .snap-card:hover { border-color: var(--line-strong); }
+  .snap-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .snap-title { font-family: 'Fraunces', serif; font-size: 15.5px; font-weight: 600; }
+  .snap-dim { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
+  .snap-label-tag {
+    display: inline-block; background: var(--rust-soft); color: var(--rust-deep);
+    font-size: 10.5px; font-weight: 600; padding: 3px 9px; border-radius: 6px; margin-top: 5px;
+  }
+  .snap-figures { text-align: right; }
+  .snap-hpp { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-soft); }
+  .snap-jual { font-family: 'JetBrains Mono', monospace; font-size: 19px; font-weight: 700; color: var(--moss); }
+  .snap-date { font-size: 10.5px; color: var(--ink-soft); margin-top: 8px; font-family: 'JetBrains Mono', monospace; }
+  .snap-actions { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+
+  .filter-pill-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+
+  /* ===== SETUP SUPABASE SCREEN ===== */
+  .setup-wrap { max-width: 560px; margin: 60px auto; }
+  .setup-wrap .card { padding: 28px 26px; }
+  .setup-step { display: flex; gap: 12px; margin-bottom: 16px; align-items: flex-start; }
+  .setup-step .num {
+    flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--wood-deep); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 700;
+  }
+  .setup-step .txt { font-size: 13px; padding-top: 3px; }
+  .setup-step .txt code { background: var(--wood-bg); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+  #setup-error { color: var(--danger); font-size: 12.5px; margin-top: 10px; display: none; }
+
+  @media print {
+    .nav, .product-select-wrap, .btn, .download-bar, header p, .sync-badge, .no-print { display: none !important; }
+    body { background: #fff; }
+    .card { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
+  }
+
+  /* ===== PAGINATION ===== */
+  .pagination-wrap { margin-top: 16px; }
+  .pagination-info {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft);
+    margin-bottom: 10px; text-align: center;
+  }
+  .pagination-buttons { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; align-items: center; }
+  .page-btn {
+    min-width: 34px; padding: 7px 10px; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 600; border: 1.5px solid var(--line-strong); border-radius: 7px;
+    background: #fff; cursor: pointer; color: var(--ink-soft); transition: all 0.15s;
+  }
+  .page-btn:hover:not(:disabled) { border-color: var(--wood-mid); color: var(--wood-deep); }
+  .page-btn.active { background: var(--wood-deep); color: var(--wood-bg-soft); border-color: var(--wood-deep); }
+  .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .page-ellipsis { color: var(--ink-soft); font-size: 12px; padding: 0 2px; }
+
+  @media (max-width: 640px) {
+    .grid2, .grid3, .grid4, .grid5, .grid6 { grid-template-columns: 1fr; }
+    .row-item, .row-item-header { grid-template-columns: 1fr; gap: 6px; }
+    .compare-grid { grid-template-columns: 1fr; }
+    header h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ SETUP SCREEN (tampil sekali sebelum config Supabase tersimpan) ============ -->
+<div class="setup-wrap" id="setup-screen" style="display:none;">
+  <div class="card">
+    <h2>🔌 Hubungkan ke Supabase</h2>
+    <p class="note" style="margin-bottom:18px;">Kalkulator ini menyimpan data di Supabase supaya bisa diakses & sinkron dari HP, laptop, atau device lain. Isi sekali saja — tersimpan di browser ini untuk pemakaian berikutnya.</p>
+
+    <div class="setup-step">
+      <div class="num">1</div>
+      <div class="txt">Buka project Supabase Anda → <b>Project Settings → API</b>.</div>
+    </div>
+    <div class="setup-step">
+      <div class="num">2</div>
+      <div class="txt">Salin <b>Project URL</b>, tempel di bawah:</div>
+    </div>
+    <input type="text" id="setup-url" placeholder="https://xxxxxxxxxxxx.supabase.co" style="margin-bottom:12px;">
+
+    <div class="setup-step">
+      <div class="num">3</div>
+      <div class="txt">Salin <b>anon public key</b> (bukan service_role!), tempel di bawah:</div>
+    </div>
+    <input type="text" id="setup-key" placeholder="eyJhbGciOi..." style="margin-bottom:16px;">
+
+    <button class="btn btn-primary" onclick="simpanSetupSupabase()" style="width:100%;">Hubungkan & Mulai</button>
+    <div id="setup-error"></div>
+
+    <div class="divider"></div>
+    <p class="note">Belum punya project Supabase? Buat gratis di <b>supabase.com</b> → New Project, lalu jalankan file <code style="background:var(--wood-bg); padding:2px 6px; border-radius:4px;">schema.sql</code> yang sudah disiapkan lewat SQL Editor di dashboard Supabase Anda sebelum mengisi form ini.</p>
+  </div>
+</div>
+
+<!-- ============ APP (tampil setelah config Supabase ada) ============ -->
+<div class="wrap" id="app-root" style="display:none;">
+
+  <header>
+    <h1>Kalkulator HPP <span class="chip">Bengkel Multiplex</span></h1>
+    <p>// database bahan baku & perhitungan harga pokok produksi — tersinkron via Supabase</p>
+    <div class="sync-badge offline" id="sync-badge"><span class="dot"></span><span id="sync-text">Menghubungkan...</span></div>
+  </header>
+
+  <div class="ruler"></div>
+
+  <div class="nav">
+    <button class="nav-btn active" onclick="goPage('db', this)">📦 Database Bahan</button>
+    <button class="nav-btn" onclick="goPage('hpp', this)">🧮 Kalkulator HPP</button>
+    <button class="nav-btn" onclick="goPage('kelola', this)">🗂️ Kelola Produk</button>
+    <button class="nav-btn" onclick="goPage('snapshot', this)">📚 Riwayat Hasil HPP</button>
+    <button class="nav-btn" onclick="goPage('bep', this)">📍 BEP</button>
+    <button class="nav-btn" onclick="goPage('riwayat', this)">🕒 Riwayat Harga Bahan</button>
+  </div>
+
+  <!-- ============ PAGE 1: DATABASE ============ -->
+  <div id="page-db" class="page active">
+    <div class="card">
+      <h2>Tambah Bahan Baku</h2>
+      <div class="grid5" style="margin-bottom:14px;">
+        <div><div class="label">Nama Bahan</div><input type="text" id="db-nama" placeholder="cth: Engsel Sendok"></div>
+        <div><div class="label">Kategori</div>
+          <select id="db-kategori" onchange="updateIsiHelperText()">
+            <option value="lembaran">Lembaran</option>
+            <option value="linear">Linear / Meter</option>
+            <option value="batang">Batang</option>
+            <option value="pack">Pack / Box</option>
+            <option value="satuan">Satuan / Pcs</option>
+          </select>
+        </div>
+        <div><div class="label">Harga (Rp)</div><input type="number" id="db-harga" placeholder="0"></div>
+        <div><div class="label" id="db-isi-label">Isi per Satuan</div><input type="number" id="db-isi" placeholder="cth: 100"></div>
+        <div><div class="label">Satuan Beli</div><input type="text" id="db-satuan" placeholder="lembar/meter/pcs"></div>
+      </div>
+      <div class="grid2" style="margin-bottom:6px;">
+        <div><div class="label">Keterangan (opsional)</div><input type="text" id="db-ket" placeholder="cth: ukuran 122×244cm, panjang 6m"></div>
+      </div>
+      <p class="note" id="db-isi-helper" style="margin-bottom:14px;">💡 Untuk kategori <b>Lembaran</b>: isi jumlah potongan yang bisa dihasilkan dari 1 lembar (misal 12). Untuk <b>Batang</b>: isi panjang batang dalam cm (misal 600). Untuk <b>Pack</b>: isi jumlah pcs per pack (misal 100).</p>
+      <button class="btn btn-primary" id="btn-tambah-bahan" onclick="tambahBahan()">+ Tambah ke Database</button>
+    </div>
+
+    <div class="tip-box">
+      💡 <b>Tips:</b> Klik tombol <b>⧉ Duplikat</b> di salah satu bahan untuk membuat salinannya — lebih cepat daripada isi form dari awal kalau bahan barunya cuma beda nama/ukuran tipis (misal "Multiplex 18mm" → "Multiplex 15mm").
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+        <h2 style="margin:0;">Daftar Bahan Baku</h2>
+        <span id="db-count" style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-soft); font-weight:600;">0 bahan</span>
+      </div>
+
+      <div class="filter-bar">
+        <input type="text" id="filter-search" placeholder="🔍 Cari nama bahan..." oninput="dbPage=1; renderDatabase()">
+        <select id="filter-cat" onchange="dbPage=1; renderDatabase()">
+          <option value="">Semua Kategori</option>
+          <option value="lembaran">Lembaran</option>
+          <option value="linear">Linear / Meter</option>
+          <option value="batang">Batang</option>
+          <option value="pack">Pack / Box</option>
+          <option value="satuan">Satuan / Pcs</option>
+        </select>
+        <button class="sort-btn active" id="sort-az" onclick="setSort('az')">A–Z</button>
+        <button class="sort-btn" id="sort-za" onclick="setSort('za')">Z–A</button>
+        <button class="sort-btn" id="sort-harga" onclick="setSort('harga')">Harga ↑</button>
+      </div>
+
+      <div id="db-list"></div>
+      <div id="db-pagination" class="pagination-wrap"></div>
+    </div>
+
+    <div class="download-bar">
+      <button class="btn btn-ghost btn-sm" onclick="exportDataJSON()">⬇ Export Backup (JSON)</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-file').click()">⬆ Import Backup (JSON)</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importDataJSON(event)">
+      <button class="btn btn-ghost btn-sm" onclick="bukaUbahKoneksi()">⚙️ Ubah Koneksi Supabase</button>
+    </div>
+  </div>
+
+  <!-- ============ PAGE 2: KALKULATOR HPP (DINAMIS) ============ -->
+  <div id="page-hpp" class="page">
+
+    <div class="product-select-wrap">
+      <select class="product-select" id="produk-selector" onchange="switchProdukDropdown()">
+        <!-- opsi diisi otomatis oleh JS dari daftarProduk -->
+      </select>
+    </div>
+
+    <div id="produk-container"></div>
+
+  </div>
+
+  <!-- ============ PAGE 2b: KELOLA PRODUK ============ -->
+  <div id="page-kelola" class="page">
+    <div class="card">
+      <h2>Tambah Produk Baru</h2>
+      <div class="grid2" style="margin-bottom:14px;">
+        <div><div class="label">Nama Produk</div><input type="text" id="newprod-nama" placeholder="cth: Rak Sepatu, Box Mainan, dll"></div>
+        <div><div class="label">Emoji / Ikon (opsional)</div><input type="text" id="newprod-emoji" placeholder="📦" maxlength="2"></div>
+      </div>
+      <button class="btn btn-primary" id="btn-tambah-produk" onclick="tambahProduk()">+ Tambah Produk</button>
+    </div>
+
+    <div class="card">
+      <h2>Daftar Produk</h2>
+      <div id="kelola-produk-list"></div>
+    </div>
+  </div>
+
+  <!-- ============ PAGE 2c: RIWAYAT HASIL HPP (snapshot per varian) ============ -->
+  <div id="page-snapshot" class="page">
+    <div class="card">
+      <h2>Riwayat Hasil Perhitungan HPP <span class="sub">tiap "Simpan sebagai Hasil" jadi entri baru, tidak menimpa</span></h2>
+      <p class="note" style="margin-bottom:16px;">Bandingkan beberapa ukuran/varian dari produk yang sama, atau export semuanya untuk bahan presentasi & pengajuan harga.</p>
+      <div class="filter-pill-bar">
+        <select id="snap-filter-produk" onchange="renderSnapshotList()" style="max-width:260px;">
+          <option value="">Semua Produk</option>
+        </select>
+        <input type="text" id="snap-filter-label" placeholder="🔍 Cari label/catatan..." oninput="renderSnapshotList()" style="max-width:220px;">
+      </div>
+      <div id="snapshot-list"></div>
+    </div>
+    <div class="download-bar">
+      <button class="btn btn-primary btn-sm" onclick="exportSnapshotCSV()">⬇ Export Semua Riwayat (CSV — bahan presentasi)</button>
+      <button class="btn btn-ghost btn-sm" onclick="printSemuaSnapshot()">🖨️ Print Semua Riwayat (PDF)</button>
+    </div>
+  </div>
+
+  <!-- ============ PAGE 3: BEP (TITIK IMPAS) ============ -->
+  <div id="page-bep" class="page">
+    <div class="card">
+      <h2>Pilih Produk untuk Hitung BEP</h2>
+      <select id="bep-produk-select" onchange="hitungBEP()"></select>
+    </div>
+
+    <div class="card">
+      <h2>Biaya Tetap Bulanan <span class="sub">sewa tempat, listrik bengkel, gaji tetap, dll</span></h2>
+      <div class="grid2">
+        <div><div class="label">Total Biaya Tetap per Bulan (Rp)</div><input type="number" id="bep-fixed-cost" value="0" oninput="hitungBEP()"></div>
+        <div><div class="label">Harga Jual per Unit (Rp)</div><input type="text" id="bep-harga-jual" readonly></div>
+      </div>
+      <div class="note" style="margin-top:10px;">Harga jual otomatis mengikuti hasil kalkulator HPP produk yang dipilih.</div>
+    </div>
+
+    <div class="card">
+      <h2>Hasil BEP</h2>
+      <div class="grid2">
+        <div class="compare-box">
+          <h4>HPP (Biaya Variabel) per Unit</h4>
+          <div class="compare-val" id="bep-hpp-unit">Rp 0</div>
+        </div>
+        <div class="compare-box">
+          <h4>Kontribusi Margin per Unit</h4>
+          <div class="compare-val" id="bep-kontribusi">Rp 0</div>
+          <div class="compare-note">Harga jual − HPP per unit</div>
+        </div>
+      </div>
+      <div class="bep-result">
+        <div class="bep-num" id="bep-unit-result">0 unit</div>
+        <div class="bep-label">unit harus terjual per bulan supaya balik modal (titik impas)</div>
+      </div>
+      <div class="bep-result" style="margin-top:12px;">
+        <div class="bep-num" id="bep-rupiah-result">Rp 0</div>
+        <div class="bep-label">total penjualan (dalam Rupiah) yang harus tercapai per bulan</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PAGE 4: RIWAYAT HARGA BAHAN ============ -->
+  <div id="page-riwayat" class="page">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <h2 style="margin:0;">Riwayat Perubahan Harga Bahan Baku</h2>
+        <button class="btn btn-ghost btn-sm" onclick="clearRiwayat()">🗑 Bersihkan Riwayat</button>
+      </div>
+      <p class="note" style="margin-bottom:16px;">Setiap kali harga bahan diedit di halaman Database, perubahannya otomatis tercatat di sini.</p>
+      <div id="riwayat-list"><div class="empty-state">Belum ada riwayat perubahan harga.</div></div>
+    </div>
+  </div>
+
+  <!-- MODAL PILIH BAHAN -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 style="margin:0;">Pilih Bahan</h2>
+        <button class="btn-danger" onclick="closeModal()">✕ Tutup</button>
+      </div>
+      <input type="text" id="modal-search" placeholder="🔍 Cari bahan..." oninput="renderModal()" style="margin-bottom:14px;">
+      <div id="modal-list"></div>
+    </div>
+  </div>
+
+  <!-- MODAL SIMPAN SNAPSHOT -->
+  <div class="modal-overlay" id="modal-snapshot">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 style="margin:0;">💾 Simpan Hasil Hitung</h2>
+        <button class="btn-danger" onclick="closeSnapshotModal()">✕ Tutup</button>
+      </div>
+      <p class="note" style="margin-bottom:14px;">Ukuran, bahan, dan harga jual saat ini akan disimpan sebagai entri baru di Riwayat Hasil HPP — tidak menimpa data produk yang sedang Anda kerjakan.</p>
+      <div class="label">Label / Catatan (opsional)</div>
+      <input type="text" id="snapshot-label-input" placeholder="cth: Varian kecil untuk pasar online" style="margin-bottom:16px;">
+      <button class="btn btn-primary" style="width:100%;" onclick="simpanSnapshot()">Simpan sebagai Hasil Baru</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// UTIL
+// ============================================================
+const fmt = n => 'Rp ' + Math.round(n||0).toLocaleString('id-ID');
+const escAttr = s => String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const escHtml = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const catLabel = { lembaran:'Lembaran', linear:'Linear', batang:'Batang', pack:'Pack', satuan:'Satuan' };
+const catClass = { lembaran:'badge-lembaran', linear:'badge-linear', batang:'badge-batang', pack:'badge-pack', satuan:'badge-satuan' };
+const KATEGORI_VALID = ['lembaran','linear','batang','pack','satuan'];
+
+function debounce(fn, ms) {
+  let t = null;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+// ============================================================
+// KONEKSI SUPABASE
+// ============================================================
+const SETUP_KEY = 'hpp_supabase_config';
+let supa = null;
+let isOnline = false;
+
+function getSetupConfig() {
+  try { return JSON.parse(localStorage.getItem(SETUP_KEY) || 'null'); }
+  catch(e) { return null; }
+}
+
+function simpanSetupSupabase() {
+  const url = document.getElementById('setup-url').value.trim();
+  const key = document.getElementById('setup-key').value.trim();
+  const errEl = document.getElementById('setup-error');
+  errEl.style.display = 'none';
+
+  if (!url || !key) { errEl.textContent = 'URL dan anon key wajib diisi.'; errEl.style.display = 'block'; return; }
+  if (!/^https:\/\/.+\.supabase\.co\/?$/.test(url)) {
+    errEl.textContent = 'Format URL tidak sesuai. Contoh yang benar: https://xxxxx.supabase.co'; errEl.style.display = 'block'; return;
+  }
+
+  localStorage.setItem(SETUP_KEY, JSON.stringify({ url: url.replace(/\/$/,''), key }));
+  bootApp();
+}
+
+function bukaUbahKoneksi() {
+  if (!confirm('Ubah koneksi Supabase? Anda akan diminta mengisi URL & key lagi.')) return;
+  localStorage.removeItem(SETUP_KEY);
+  location.reload();
+}
+
+function setSyncBadge(state, text) {
+  const badge = document.getElementById('sync-badge');
+  const txt = document.getElementById('sync-text');
+  if (!badge) return;
+  badge.classList.remove('online','offline','syncing');
+  badge.classList.add(state);
+  txt.textContent = text;
+}
+
+async function bootApp() {
+  const cfg = getSetupConfig();
+  if (!cfg) {
+    document.getElementById('setup-screen').style.display = 'block';
+    document.getElementById('app-root').style.display = 'none';
+    return;
+  }
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('app-root').style.display = 'block';
+
+  try {
+    supa = window.supabase.createClient(cfg.url, cfg.key);
+    setSyncBadge('syncing', 'Memuat data...');
+    await initData();
+    isOnline = true;
+    setSyncBadge('online', 'Tersinkron');
+    renderAll();
+  } catch (err) {
+    console.error('[HPP Kalkulator] Gagal konek Supabase:', err);
+    isOnline = false;
+    setSyncBadge('offline', 'Gagal konek — pakai data tersimpan lokal');
+    loadLocalCache();
+    renderAll();
+    alert('Tidak bisa terhubung ke Supabase: ' + err.message + '\n\nMenampilkan data cache terakhir (kalau ada). Periksa koneksi internet atau cek ulang URL/key lewat "⚙️ Ubah Koneksi Supabase".');
+  }
+}
+
+// ============================================================
+// STATE GLOBAL
+// ============================================================
+const LOCAL_CACHE_KEY = 'hpp_local_cache_v3';
+
+let sortMode = 'az';
+let dbPage = 1;
+const DB_PAGE_SIZE = 20;
+let editingId = null;
+let activeProdukId = null;
+
+let database = [];        // bahan baku  [{id, nama, kategori, harga, isi, satuan, ket}]
+let daftarProduk = [];    // [{id, nama, emoji}]
+let produkData = {};      // { [produkId]: {panjang,lebar,tinggi,tk,oh,margin,pricingMode,bahan:[{uid,bahanId,qty}]} }
+let riwayatHarga = [];    // [{id, nama, hargaLama, hargaBaru, tanggal}]
+let snapshotList = [];    // [{id, produkId, produkNama, emoji, label, panjang, lebar, tinggi, tk, oh, margin, pricingMode, bahan, bahanDetail, hpp, hargaJual, hargaMargin, hargaMarkup, createdAt}]
+
+function saveLocalCache() {
+  try {
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ database, daftarProduk, produkData, riwayatHarga, snapshotList }));
+  } catch(e) { console.warn('[HPP Kalkulator] Gagal simpan cache lokal:', e); }
+}
+
+// ============================================================
+// LOAD DATA DARI SUPABASE
+// ============================================================
+async function initData() {
+  const [{ data: bahanRows, error: e1 }, { data: produkRows, error: e2 },
+         { data: riwayatRows, error: e3 }, { data: snapRows, error: e4 }] = await Promise.all([
+    supa.from('bahan_baku').select('*').order('nama'),
+    supa.from('produk').select('*').order('created_at'),
+    supa.from('riwayat_harga').select('*').order('created_at', { ascending:false }).limit(200),
+    supa.from('riwayat_hpp').select('*').order('created_at', { ascending:false }),
+  ]);
+  if (e1) throw e1; if (e2) throw e2; if (e3) throw e3; if (e4) throw e4;
+
+  database = (bahanRows||[]).map(r => ({ id:r.id, nama:r.nama, kategori:r.kategori, harga:Number(r.harga), isi:Number(r.isi), satuan:r.satuan, ket:r.ket||'' }));
+
+  daftarProduk = (produkRows||[]).map(r => ({ id:r.id, nama:r.nama, emoji:r.emoji||'📦' }));
+  produkData = {};
+  (produkRows||[]).forEach(r => {
+    produkData[r.id] = {
+      panjang:Number(r.panjang)||0, lebar:Number(r.lebar)||0, tinggi:Number(r.tinggi)||0,
+      tk:Number(r.tk)||0, oh:Number(r.oh)||0, margin:Number(r.margin)||0,
+      pricingMode: r.pricing_mode === 'markup' ? 'markup' : 'margin',
+      bahan: Array.isArray(r.bahan) ? r.bahan : [],
+    };
+  });
+
+  riwayatHarga = (riwayatRows||[]).map(r => ({
+    id:r.id, bahanId:r.bahan_id, nama:r.nama, hargaLama:Number(r.harga_lama), hargaBaru:Number(r.harga_baru),
+    tanggal: new Date(r.created_at).toLocaleString('id-ID', { dateStyle:'medium', timeStyle:'short' }),
+  }));
+
+  snapshotList = (snapRows||[]).map(r => ({
+    id:r.id, produkId:r.produk_id, produkNama:r.produk_nama, emoji:r.emoji||'📦', label:r.label||'',
+    panjang:Number(r.panjang)||0, lebar:Number(r.lebar)||0, tinggi:Number(r.tinggi)||0,
+    tk:Number(r.tk)||0, oh:Number(r.oh)||0, margin:Number(r.margin)||0,
+    pricingMode: r.pricing_mode === 'markup' ? 'markup' : 'margin',
+    bahan: Array.isArray(r.bahan) ? r.bahan : [],
+    bahanDetail: Array.isArray(r.bahan_detail) ? r.bahan_detail : [],
+    hpp:Number(r.hpp)||0, hargaJual:Number(r.harga_jual)||0, hargaMargin:Number(r.harga_margin)||0, hargaMarkup:Number(r.harga_markup)||0,
+    createdAt: r.created_at,
+    tanggal: new Date(r.created_at).toLocaleString('id-ID', { dateStyle:'medium', timeStyle:'short' }),
+  }));
+
+  sanitizeDatabase();
+  sanitizeProduk();
+  if (!activeProdukId && daftarProduk.length) activeProdukId = daftarProduk[0].id;
+  saveLocalCache();
+}
+
+function sanitizeDatabase() {
+  database = (database||[]).filter(b => b && typeof b === 'object').map(b => ({
+    id: b.id,
+    nama: typeof b.nama === 'string' && b.nama.trim() ? b.nama : 'Bahan tanpa nama',
+    kategori: KATEGORI_VALID.includes(b.kategori) ? b.kategori : 'satuan',
+    harga: typeof b.harga === 'number' && !isNaN(b.harga) ? b.harga : 0,
+    isi: typeof b.isi === 'number' && !isNaN(b.isi) && b.isi > 0 ? b.isi : 1,
+    satuan: typeof b.satuan === 'string' && b.satuan ? b.satuan : 'pcs',
+    ket: typeof b.ket === 'string' ? b.ket : '',
+  }));
+}
+
+function sanitizeProduk() {
+  if (!Array.isArray(daftarProduk)) daftarProduk = [];
+  daftarProduk = daftarProduk.filter(p => p && p.id);
+  daftarProduk.forEach(p => {
+    if (!produkData[p.id]) produkData[p.id] = defaultProdukKosong();
+    const d = produkData[p.id];
+    d.panjang = Number(d.panjang) || 0;
+    d.lebar = Number(d.lebar) || 0;
+    d.tinggi = Number(d.tinggi) || 0;
+    d.tk = Number(d.tk) || 0;
+    d.oh = Number(d.oh) || 0;
+    d.margin = Number(d.margin) || 0;
+    d.pricingMode = d.pricingMode === 'markup' ? 'markup' : 'margin';
+    if (!Array.isArray(d.bahan)) d.bahan = [];
+  });
+}
+
+function defaultProdukKosong() {
+  return { panjang:0, lebar:0, tinggi:0, tk:0, oh:0, margin:30, pricingMode:'margin', bahan:[] };
+}
+
+function renderAll() {
+  dbPage = 1;
+  renderDatabase();
+  renderProdukSelector();
+  renderActiveProduk();
+}
+
+// ============================================================
+// EXPORT / IMPORT BACKUP (JSON) — opsional, di luar sinkron Supabase
+// ============================================================
+function exportDataJSON() {
+  const state = { database, daftarProduk, produkData, riwayatHarga, snapshotList, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'hpp-data-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function importDataJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!confirm('Import akan MENAMBAHKAN data dari file ini ke Supabase (bahan baru ditambah, produk dengan ID yang sama akan ditimpa). Lanjutkan?')) {
+    event.target.value = ''; return;
+  }
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const state = JSON.parse(e.target.result);
+      setSyncBadge('syncing', 'Mengimpor data...');
+
+      if (Array.isArray(state.database) && state.database.length) {
+        const rows = state.database.map(b => ({ nama:b.nama, kategori:b.kategori, harga:b.harga, isi:b.isi, satuan:b.satuan, ket:b.ket||'' }));
+        const { error } = await supa.from('bahan_baku').insert(rows);
+        if (error) throw error;
+      }
+      if (Array.isArray(state.daftarProduk) && state.daftarProduk.length) {
+        const rows = state.daftarProduk.map(p => {
+          const d = (state.produkData && state.produkData[p.id]) || defaultProdukKosong();
+          return {
+            id: p.id, nama: p.nama, emoji: p.emoji||'📦',
+            panjang: d.panjang||0, lebar: d.lebar||0, tinggi: d.tinggi||0,
+            tk: d.tk||0, oh: d.oh||0, margin: d.margin??30,
+            pricing_mode: d.pricingMode==='markup'?'markup':'margin',
+            bahan: d.bahan||[],
+          };
+        });
+        const { error } = await supa.from('produk').upsert(rows, { onConflict:'id' });
+        if (error) throw error;
+      }
+
+      await initData();
+      renderAll();
+      setSyncBadge('online', 'Tersinkron');
+      alert('Data berhasil di-import ke Supabase!');
+    } catch(err) {
+      console.error('[HPP Kalkulator] Gagal import:', err);
+      setSyncBadge(isOnline ? 'online' : 'offline', isOnline ? 'Tersinkron' : 'Offline');
+      alert('Gagal import: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function goPage(page, el) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('page-' + page).classList.add('active');
+  if (page === 'bep') { renderBepSelector(); hitungBEP(); }
+  if (page === 'riwayat') renderRiwayat();
+  if (page === 'kelola') renderKelolaProdukList();
+  if (page === 'hpp') { renderProdukSelector(); renderActiveProduk(); }
+  if (page === 'snapshot') { renderSnapshotFilterOptions(); renderSnapshotList(); }
+}
+
+function setSort(mode) {
+  sortMode = mode;
+  dbPage = 1;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sort-' + mode).classList.add('active');
+  renderDatabase();
+}
+
+function updateIsiHelperText() {
+  const kat = document.getElementById('db-kategori').value;
+  const labelEl = document.getElementById('db-isi-label');
+  const helperEl = document.getElementById('db-isi-helper');
+  const teks = {
+    lembaran: ['Jumlah Potongan per Lembar', '💡 Kategori <b>Lembaran</b>: isi jumlah potongan yang bisa dihasilkan dari 1 lembar (misal 12 potong 60×20cm dari 1 lembar 122×244cm).'],
+    batang: ['Panjang Batang (cm)', '💡 Kategori <b>Batang</b>: isi panjang total 1 batang dalam cm (misal 600 untuk batang 6 meter).'],
+    pack: ['Isi per Pack (pcs)', '💡 Kategori <b>Pack</b>: isi jumlah pcs di dalam 1 pack/box (misal 100).'],
+    linear: ['Isi per Satuan', '💡 Kategori <b>Linear/Meter</b>: biasanya isi 1 (harga sudah per meter).'],
+    satuan: ['Isi per Satuan', '💡 Kategori <b>Satuan/Pcs</b>: biasanya isi 1 (harga sudah per pcs).'],
+  };
+  const [label, helper] = teks[kat] || teks.satuan;
+  if (labelEl) labelEl.textContent = label;
+  if (helperEl) helperEl.innerHTML = helper;
+}
+
+// ============================================================
+// DATABASE BAHAN: CRUD (via Supabase)
+// ============================================================
+function getFiltered() {
+  const q = (document.getElementById('filter-search').value || '').toLowerCase();
+  const cat = document.getElementById('filter-cat').value;
+  let list = database.filter(b => {
+    if (!b) return false;
+    const namaSafe = String(b.nama ?? '').toLowerCase();
+    const ketSafe = String(b.ket ?? '').toLowerCase();
+    const matchQ = namaSafe.includes(q) || ketSafe.includes(q);
+    const matchCat = !cat || b.kategori === cat;
+    return matchQ && matchCat;
+  });
+  if (sortMode === 'az') list.sort((a,b) => String(a.nama??'').localeCompare(String(b.nama??'')));
+  else if (sortMode === 'za') list.sort((a,b) => String(b.nama??'').localeCompare(String(a.nama??'')));
+  else if (sortMode === 'harga') list.sort((a,b) => (a.harga||0) - (b.harga||0));
+  return list;
+}
+
+async function tambahBahan() {
+  const nama = document.getElementById('db-nama').value.trim();
+  const harga = parseFloat(document.getElementById('db-harga').value);
+  if (!nama) { alert('Nama bahan wajib diisi!'); return; }
+  if (!harga || harga <= 0) { alert('Harga wajib diisi dan harus lebih dari 0!'); return; }
+
+  const isi = parseFloat(document.getElementById('db-isi').value) || 1;
+  if (isi <= 0) { alert('Isi per satuan harus lebih dari 0!'); return; }
+
+  const payload = {
+    nama, kategori: document.getElementById('db-kategori').value, harga, isi,
+    satuan: document.getElementById('db-satuan').value.trim() || 'pcs',
+    ket: document.getElementById('db-ket').value.trim(),
+  };
+
+  const btn = document.getElementById('btn-tambah-bahan');
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+  try {
+    const { data, error } = await supa.from('bahan_baku').insert(payload).select().single();
+    if (error) throw error;
+    database.push({ id:data.id, nama:data.nama, kategori:data.kategori, harga:Number(data.harga), isi:Number(data.isi), satuan:data.satuan, ket:data.ket||'' });
+    ['db-nama','db-harga','db-isi','db-satuan','db-ket'].forEach(id => document.getElementById(id).value = '');
+    saveLocalCache();
+    renderDatabase();
+  } catch(err) {
+    console.error('[HPP Kalkulator] Gagal tambah bahan:', err);
+    alert('Gagal menyimpan ke Supabase: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '+ Tambah ke Database';
+  }
+}
+
+async function duplikatBahan(id) {
+  try {
+    const b = database.find(x => x.id === id);
+    if (!b) { alert('Bahan tidak ditemukan.'); return; }
+    const payload = { nama: b.nama + ' (copy)', kategori:b.kategori, harga:b.harga, isi:b.isi, satuan:b.satuan, ket:b.ket||'' };
+    const { data, error } = await supa.from('bahan_baku').insert(payload).select().single();
+    if (error) throw error;
+    const copy = { id:data.id, nama:data.nama, kategori:data.kategori, harga:Number(data.harga), isi:Number(data.isi), satuan:data.satuan, ket:data.ket||'' };
+    database.push(copy);
+    saveLocalCache();
+    renderDatabase();
+    startEdit(copy.id);
+    setTimeout(() => {
+      const el = document.getElementById('edit-nama-' + copy.id);
+      if (el) { el.scrollIntoView({ behavior:'smooth', block:'center' }); el.focus(); el.select(); }
+    }, 50);
+  } catch (err) {
+    console.error('[HPP Kalkulator] Gagal duplikat bahan:', err);
+    alert('Gagal menduplikat bahan: ' + err.message);
+  }
+}
+
+function startEdit(id) {
+  try { editingId = id; renderDatabase(); }
+  catch (err) { console.error('[HPP Kalkulator] Gagal masuk mode edit:', err); alert('Gagal membuka mode edit: ' + err.message); }
+}
+function cancelEdit() {
+  try { editingId = null; renderDatabase(); }
+  catch (err) { console.error('[HPP Kalkulator] Gagal batal edit:', err); }
+}
+
+async function saveEdit(id) {
+  try {
+    const b = database.find(x => x.id === id);
+    if (!b) { alert('Bahan tidak ditemukan (mungkin sudah dihapus).'); editingId = null; renderDatabase(); return; }
+
+    const elNama = document.getElementById('edit-nama-'+id);
+    const elKat = document.getElementById('edit-kat-'+id);
+    const elHarga = document.getElementById('edit-harga-'+id);
+    const elSatuan = document.getElementById('edit-satuan-'+id);
+    const elIsi = document.getElementById('edit-isi-'+id);
+    const elKet = document.getElementById('edit-ket-'+id);
+
+    if (!elNama || !elKat || !elHarga || !elSatuan || !elIsi || !elKet) {
+      throw new Error('Form edit tidak lengkap — beberapa kolom tidak ditemukan di halaman.');
+    }
+
+    const hargaBaru = parseFloat(elHarga.value);
+    const isiBaru = parseFloat(elIsi.value);
+    if (isNaN(hargaBaru) || hargaBaru < 0) { alert('Harga tidak valid.'); return; }
+    if (isNaN(isiBaru) || isiBaru <= 0) { alert('Isi per satuan harus lebih dari 0.'); return; }
+
+    const hargaLama = b.harga;
+    const payload = {
+      nama: elNama.value.trim() || b.nama,
+      kategori: elKat.value,
+      harga: hargaBaru,
+      satuan: elSatuan.value.trim() || b.satuan,
+      isi: isiBaru,
+      ket: elKet.value,
+    };
+
+    const { error } = await supa.from('bahan_baku').update(payload).eq('id', id);
+    if (error) throw error;
+
+    Object.assign(b, payload);
+
+    if (hargaLama !== b.harga) {
+      const { data: logRow, error: e2 } = await supa.from('riwayat_harga').insert({
+        bahan_id: id, nama: b.nama, harga_lama: hargaLama, harga_baru: b.harga,
+      }).select().single();
+      if (!e2 && logRow) {
+        riwayatHarga.unshift({
+          id: logRow.id, bahanId: id, nama: b.nama, hargaLama, hargaBaru: b.harga,
+          tanggal: new Date(logRow.created_at).toLocaleString('id-ID', { dateStyle:'medium', timeStyle:'short' }),
+        });
+      }
+    }
+
+    editingId = null;
+    saveLocalCache();
+    renderDatabase();
+    renderActiveProduk();
+  } catch (err) {
+    console.error('[HPP Kalkulator] Gagal menyimpan edit:', err);
+    alert('Gagal menyimpan perubahan: ' + err.message + '\n\nData belum tersimpan ke Supabase. Coba lagi, atau export data (JSON) dulu sebagai backup kalau masalah berulang.');
+  }
+}
+
+function renderRiwayat() {
+  const el = document.getElementById('riwayat-list');
+  if (!riwayatHarga.length) { el.innerHTML = '<div class="empty-state">Belum ada riwayat perubahan harga.</div>'; return; }
+  el.innerHTML = riwayatHarga.map(r => `
+    <div class="history-item">
+      <div><strong>${escHtml(r.nama)}</strong></div>
+      <div><span class="history-old">${fmt(r.hargaLama)}</span> → <span class="history-new">${fmt(r.hargaBaru)}</span></div>
+      <div class="history-date">${r.tanggal}</div>
+    </div>
+  `).join('');
+}
+
+async function clearRiwayat() {
+  if (!confirm('Hapus semua riwayat perubahan harga? Ini akan menghapus permanen dari Supabase.')) return;
+  try {
+    const { error } = await supa.from('riwayat_harga').delete().neq('id', -1);
+    if (error) throw error;
+    riwayatHarga = [];
+    saveLocalCache();
+    renderRiwayat();
+  } catch(err) {
+    alert('Gagal menghapus riwayat: ' + err.message);
+  }
+}
+
+async function hapusDariDB(id) {
+  const dipakaiDi = daftarProduk.filter(p => (produkData[p.id]?.bahan||[]).some(item => item.bahanId === id)).map(p => p.nama);
+  let pesan = 'Hapus bahan ini dari database?';
+  if (dipakaiDi.length) pesan += `\n\n⚠️ Bahan ini masih dipakai di produk: ${dipakaiDi.join(', ')}. Bahan akan ikut terhapus dari produk-produk tersebut.`;
+  if (!confirm(pesan)) return;
+
+  try {
+    const { error } = await supa.from('bahan_baku').delete().eq('id', id);
+    if (error) throw error;
+
+    database = database.filter(b => b.id !== id);
+    const updates = [];
+    daftarProduk.forEach(p => {
+      const d = produkData[p.id];
+      if (d && d.bahan.some(item => item.bahanId === id)) {
+        d.bahan = d.bahan.filter(item => item.bahanId !== id);
+        updates.push(supa.from('produk').update({ bahan: d.bahan }).eq('id', p.id));
+      }
+    });
+    await Promise.all(updates);
+
+    saveLocalCache();
+    renderDatabase();
+    renderActiveProduk();
+  } catch(err) {
+    console.error('[HPP Kalkulator] Gagal hapus bahan:', err);
+    alert('Gagal menghapus dari Supabase: ' + err.message);
+  }
+}
+
+function renderDatabase() {
+  try {
+    const list = getFiltered();
+    document.getElementById('db-count').textContent = database.length + ' bahan';
+    const el = document.getElementById('db-list');
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state">Tidak ada bahan yang cocok.</div>';
+      renderPagination(0);
+      return;
+    }
+
+    if (editingId !== null) {
+      const idxEditing = list.findIndex(b => b.id === editingId);
+      if (idxEditing >= 0) dbPage = Math.floor(idxEditing / DB_PAGE_SIZE) + 1;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(list.length / DB_PAGE_SIZE));
+    if (dbPage > totalPages) dbPage = totalPages;
+    if (dbPage < 1) dbPage = 1;
+
+    const startIdx = (dbPage - 1) * DB_PAGE_SIZE;
+    const pageItems = list.slice(startIdx, startIdx + DB_PAGE_SIZE);
+
+    el.innerHTML = `<table class="bahan-table">
+      <thead><tr><th>Nama Bahan</th><th>Kategori</th><th>Harga</th><th>Satuan</th><th>Isi</th><th>Keterangan</th><th style="text-align:right">Aksi</th></tr></thead>
+      <tbody>
+      ${pageItems.map(b => {
+        if (editingId === b.id) {
+          return `<tr class="editing">
+            <td><input id="edit-nama-${b.id}" value="${escAttr(b.nama)}"></td>
+            <td><select id="edit-kat-${b.id}">
+              ${KATEGORI_VALID.map(k => `<option value="${k}" ${b.kategori===k?'selected':''}>${catLabel[k]}</option>`).join('')}
+            </select></td>
+            <td><input type="number" id="edit-harga-${b.id}" value="${b.harga}"></td>
+            <td><input id="edit-satuan-${b.id}" value="${escAttr(b.satuan)}" placeholder="lembar/meter/pcs"></td>
+            <td><input type="number" id="edit-isi-${b.id}" value="${b.isi}"></td>
+            <td><input id="edit-ket-${b.id}" value="${escAttr(b.ket||'')}" placeholder="keterangan"></td>
+            <td style="text-align:right; white-space:nowrap;">
+              <button type="button" class="btn btn-primary btn-sm" onclick="saveEdit(${b.id})">✓ Simpan</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="cancelEdit()" style="margin-left:4px;">Batal</button>
+            </td>
+          </tr>`;
+        }
+        return `<tr>
+          <td><strong>${escHtml(b.nama)}</strong></td>
+          <td><span class="badge ${catClass[b.kategori]||''}">${catLabel[b.kategori]||b.kategori}</span></td>
+          <td>${fmt(b.harga)}</td>
+          <td class="note">${escHtml(b.satuan)}</td>
+          <td class="note">${b.isi > 1 ? b.isi+' pcs' : '-'}</td>
+          <td class="note">${escHtml(b.ket||'-')}</td>
+          <td style="text-align:right; white-space:nowrap;">
+            <button type="button" class="btn-icon" onclick="duplikatBahan(${b.id})" title="Duplikat bahan ini">⧉ Duplikat</button>
+            <button type="button" class="btn-icon" onclick="startEdit(${b.id})" style="margin-left:4px;">✏️ Edit</button>
+            <button type="button" class="btn-danger" onclick="hapusDariDB(${b.id})" style="margin-left:4px;">🗑</button>
+          </td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table>`;
+
+    renderPagination(list.length, totalPages);
+  } catch (err) {
+    console.error('[HPP Kalkulator] Gagal render database:', err);
+    const el = document.getElementById('db-list');
+    if (el) el.innerHTML = `<div class="empty-state">⚠️ Terjadi error saat menampilkan daftar bahan: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderPagination(totalItems, totalPages) {
+  const wrap = document.getElementById('db-pagination');
+  if (!wrap) return;
+  if (!totalItems || totalPages <= 1) { wrap.innerHTML = ''; return; }
+
+  let buttons = '';
+  const maxButtons = 7;
+  let startP = Math.max(1, dbPage - 3);
+  let endP = Math.min(totalPages, startP + maxButtons - 1);
+  if (endP - startP < maxButtons - 1) startP = Math.max(1, endP - maxButtons + 1);
+
+  buttons += `<button type="button" class="page-btn" onclick="gotoDbPage(${dbPage-1})" ${dbPage===1?'disabled':''}>‹ Prev</button>`;
+  if (startP > 1) buttons += `<button type="button" class="page-btn" onclick="gotoDbPage(1)">1</button><span class="page-ellipsis">…</span>`;
+  for (let i = startP; i <= endP; i++) {
+    buttons += `<button type="button" class="page-btn ${i===dbPage?'active':''}" onclick="gotoDbPage(${i})">${i}</button>`;
+  }
+  if (endP < totalPages) buttons += `<span class="page-ellipsis">…</span><button type="button" class="page-btn" onclick="gotoDbPage(${totalPages})">${totalPages}</button>`;
+  buttons += `<button type="button" class="page-btn" onclick="gotoDbPage(${dbPage+1})" ${dbPage===totalPages?'disabled':''}>Next ›</button>`;
+
+  wrap.innerHTML = `
+    <div class="pagination-info">Menampilkan ${(dbPage-1)*DB_PAGE_SIZE+1}–${Math.min(dbPage*DB_PAGE_SIZE, totalItems)} dari ${totalItems} bahan</div>
+    <div class="pagination-buttons">${buttons}</div>
+  `;
+}
+
+function gotoDbPage(p) {
+  dbPage = p;
+  renderDatabase();
+}
+
+// ============================================================
+// PRODUK (DINAMIS) — CRUD via Supabase
+// ============================================================
+function slugifyProdukId(nama) {
+  const base = nama.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'produk';
+  return base + '-' + Date.now().toString(36);
+}
+
+async function tambahProduk() {
+  const nama = document.getElementById('newprod-nama').value.trim();
+  let emoji = document.getElementById('newprod-emoji').value.trim();
+  if (!nama) { alert('Nama produk wajib diisi!'); return; }
+  if (!emoji) emoji = '📦';
+  const id = slugifyProdukId(nama);
+
+  const btn = document.getElementById('btn-tambah-produk');
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+  try {
+    const kosong = defaultProdukKosong();
+    const { error } = await supa.from('produk').insert({
+      id, nama, emoji, panjang:kosong.panjang, lebar:kosong.lebar, tinggi:kosong.tinggi,
+      tk:kosong.tk, oh:kosong.oh, margin:kosong.margin, pricing_mode:kosong.pricingMode, bahan:kosong.bahan,
+    });
+    if (error) throw error;
+    daftarProduk.push({ id, nama, emoji });
+    produkData[id] = kosong;
+    saveLocalCache();
+    document.getElementById('newprod-nama').value = '';
+    document.getElementById('newprod-emoji').value = '';
+    renderKelolaProdukList();
+    renderProdukSelector();
+  } catch(err) {
+    console.error('[HPP Kalkulator] Gagal tambah produk:', err);
+    alert('Gagal menyimpan produk ke Supabase: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '+ Tambah Produk';
+  }
+}
+
+async function hapusProduk(id) {
+  const p = daftarProduk.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm(`Hapus produk "${p.nama}"? Data kalkulator yang sedang dikerjakan untuk produk ini akan ikut terhapus.\n\n(Riwayat Hasil HPP yang sudah disimpan sebelumnya TIDAK ikut terhapus — tetap ada di halaman Riwayat Hasil HPP.)`)) return;
+  try {
+    const { error } = await supa.from('produk').delete().eq('id', id);
+    if (error) throw error;
+    daftarProduk = daftarProduk.filter(x => x.id !== id);
+    delete produkData[id];
+    if (activeProdukId === id) activeProdukId = daftarProduk.length ? daftarProduk[0].id : null;
+    saveLocalCache();
+    renderKelolaProdukList();
+    renderProdukSelector();
+    renderActiveProduk();
+  } catch(err) {
+    console.error('[HPP Kalkulator] Gagal hapus produk:', err);
+    alert('Gagal menghapus produk dari Supabase: ' + err.message);
+  }
+}
+
+let editingProdukId = null;
+function startEditProduk(id) {
+  editingProdukId = id;
+  renderKelolaProdukList();
+}
+function cancelEditProduk() {
+  editingProdukId = null;
+  renderKelolaProdukList();
+}
+async function saveEditProduk(id) {
+  const p = daftarProduk.find(x => x.id === id);
+  if (!p) return;
+  const namaEl = document.getElementById('editprod-nama-' + id);
+  const emojiEl = document.getElementById('editprod-emoji-' + id);
+  const namaBaru = namaEl.value.trim();
+  if (!namaBaru) { alert('Nama produk tidak boleh kosong.'); return; }
+  const emojiBaru = emojiEl.value.trim() || '📦';
+  try {
+    const { error } = await supa.from('produk').update({ nama: namaBaru, emoji: emojiBaru }).eq('id', id);
+    if (error) throw error;
+    p.nama = namaBaru; p.emoji = emojiBaru;
+    editingProdukId = null;
+    saveLocalCache();
+    renderKelolaProdukList();
+    renderProdukSelector();
+    renderActiveProduk();
+  } catch(err) {
+    alert('Gagal menyimpan: ' + err.message);
+  }
+}
+
+function renderKelolaProdukList() {
+  const el = document.getElementById('kelola-produk-list');
+  if (!el) return;
+  if (!daftarProduk.length) {
+    el.innerHTML = '<div class="empty-state">Belum ada produk. Tambahkan produk baru di atas.</div>';
+    return;
+  }
+  el.innerHTML = daftarProduk.map(p => {
+    const d = produkData[p.id] || defaultProdukKosong();
+    const jumlahBahan = (d.bahan || []).length;
+    if (editingProdukId === p.id) {
+      return `<div class="row-item" style="grid-template-columns: 1fr 1fr 90px 90px;">
+        <input id="editprod-nama-${p.id}" value="${escAttr(p.nama)}">
+        <input id="editprod-emoji-${p.id}" value="${escAttr(p.emoji||'📦')}" maxlength="2">
+        <button type="button" class="btn btn-primary btn-sm" onclick="saveEditProduk('${p.id}')">✓ Simpan</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="cancelEditProduk()">Batal</button>
+      </div>`;
+    }
+    return `<div class="row-item" style="grid-template-columns: 2fr 1fr 1fr 32px;">
+      <div><div class="bahan-nama">${escHtml(p.emoji||'📦')} ${escHtml(p.nama)}</div><div class="note">${jumlahBahan} bahan dipakai</div></div>
+      <div class="note">P${d.panjang}×L${d.lebar}×T${d.tinggi} cm</div>
+      <div></div>
+      <button type="button" class="btn-icon" onclick="startEditProduk('${p.id}')" title="Edit nama/emoji">✏️</button>
+    </div>
+    <div style="text-align:right; margin: -8px 0 10px;">
+      <button type="button" class="btn-danger" onclick="hapusProduk('${p.id}')">🗑 Hapus Produk</button>
+    </div>`;
+  }).join('');
+}
+
+function renderProdukSelector() {
+  const sel = document.getElementById('produk-selector');
+  if (!sel) return;
+  if (!activeProdukId && daftarProduk.length) activeProdukId = daftarProduk[0].id;
+  let opts = daftarProduk.map(p => `<option value="${escAttr(p.id)}" ${p.id===activeProdukId?'selected':''}>${escHtml(p.emoji||'📦')} ${escHtml(p.nama)}</option>`).join('');
+  opts += `<option value="__rekap__" ${activeProdukId==='__rekap__'?'selected':''}>📊 Rekap Semua Produk</option>`;
+  sel.innerHTML = opts;
+}
+
+function switchProdukDropdown() {
+  const val = document.getElementById('produk-selector').value;
+  activeProdukId = val;
+  renderActiveProduk();
+}
+
+// ============================================================
+// KALKULASI HPP — generik untuk semua produk
+// ============================================================
+function hitungHppProduk(produkId) {
+  const d = produkData[produkId];
+  if (!d) return { hpp:0, hargaJual:0, hargaMargin:0, hargaMarkup:0, biayaPerBahan:{} };
+
+  let totalBahan = 0;
+  const biayaPerBahan = {};
+
+  (d.bahan || []).forEach(item => {
+    const b = database.find(x => x.id === item.bahanId);
+    if (!b) return;
+    const qty = Number(item.qty) || 0;
+    let biaya = 0;
+
+    if (b.kategori === 'lembaran') {
+      // qty = jumlah potongan yang dipakai DARI total potongan per lembar (diisi manual di "Pakai" pada produk,
+      // sedangkan "Jumlah Potongan per Lembar" ada di database bahan sebagai b.isi).
+      // Biaya = (harga per lembar ÷ jumlah potongan per lembar) × jumlah potongan dipakai (biasanya = jumlah lapis).
+      const potonganPerLembar = b.isi > 0 ? b.isi : 1;
+      biaya = (b.harga / potonganPerLembar) * qty;
+    } else if (b.kategori === 'linear') {
+      biaya = b.harga * qty; // qty = meter dipakai
+    } else if (b.kategori === 'batang') {
+      // qty = panjang (cm) dipakai per unit produk; b.isi = panjang batang (cm)
+      const panjangBatang = b.isi > 0 ? b.isi : 1;
+      biaya = qty > 0 ? (b.harga / panjangBatang) * qty : 0;
+    } else if (b.kategori === 'pack') {
+      const isiPack = b.isi > 0 ? b.isi : 1;
+      biaya = (b.harga / isiPack) * qty;
+    } else { // satuan
+      biaya = b.harga * qty;
+    }
+
+    biayaPerBahan[item.uid] = biaya;
+    totalBahan += biaya;
+  });
+
+  const tk = Number(d.tk) || 0;
+  const oh = Number(d.oh) || 0;
+  const hpp = totalBahan + tk + oh;
+  const margin = Number(d.margin) || 0;
+
+  const hargaMargin = margin < 100 ? hpp / (1 - margin/100) : hpp; // jaga dari div-by-zero/negatif kalau margin>=100
+  const hargaMarkup = hpp + (hpp * margin/100);
+  const hargaJual = d.pricingMode === 'markup' ? hargaMarkup : hargaMargin;
+
+  return { hpp, hargaJual, hargaMargin, hargaMarkup, totalBahan, tk, oh, biayaPerBahan };
+}
+
+// ============================================================
+// SAVE PRODUK AKTIF (debounced — supaya tidak nembak Supabase tiap keystroke)
+// ============================================================
+const saveProdukKeSupabase = debounce(async (produkId) => {
+  const d = produkData[produkId];
+  if (!d) return;
+  setSyncBadge('syncing', 'Menyimpan...');
+  try {
+    const { error } = await supa.from('produk').update({
+      panjang:d.panjang, lebar:d.lebar, tinggi:d.tinggi, tk:d.tk, oh:d.oh,
+      margin:d.margin, pricing_mode:d.pricingMode, bahan:d.bahan,
+    }).eq('id', produkId);
+    if (error) throw error;
+    setSyncBadge('online', 'Tersinkron');
+    saveLocalCache();
+  } catch(err) {
+    console.error('[HPP Kalkulator] Gagal simpan produk:', err);
+    setSyncBadge('offline', 'Gagal sinkron — coba lagi');
+  }
+}, 600);
+
+function hitungProdukAktif() {
+  if (!activeProdukId || activeProdukId === '__rekap__') return;
+  saveProdukKeSupabase(activeProdukId);
+  renderActiveProduk();
+}
+
+function updateProdukField(field, value, isNumber) {
+  const d = produkData[activeProdukId];
+  if (!d) return;
+  d[field] = isNumber ? (parseFloat(value) || 0) : value;
+  saveProdukKeSupabase(activeProdukId);
+}
+
+function updateBahanQty(uid, value) {
+  const d = produkData[activeProdukId];
+  if (!d) return;
+  const item = d.bahan.find(x => x.uid === uid);
+  if (!item) return;
+  const qty = parseFloat(value);
+  item.qty = isNaN(qty) || qty < 0 ? 0 : qty;
+  saveProdukKeSupabase(activeProdukId);
+  renderHasilHppOnly();
+}
+
+function hapusBahanDariProduk(uid) {
+  const d = produkData[activeProdukId];
+  if (!d) return;
+  d.bahan = d.bahan.filter(x => x.uid !== uid);
+  saveProdukKeSupabase(activeProdukId);
+  renderActiveProduk();
+}
+
+function setPricingMode(mode) {
+  const d = produkData[activeProdukId];
+  if (!d) return;
+  d.pricingMode = mode;
+  saveProdukKeSupabase(activeProdukId);
+  renderActiveProduk();
+}
+
+// Update bagian hasil saja (dipakai saat qty diketik, biar tidak rebuild seluruh form & kehilangan fokus input)
+function renderHasilHppOnly() {
+  const hasilEl = document.getElementById('hpp-hasil-area');
+  if (!hasilEl || !activeProdukId || activeProdukId === '__rekap__') return;
+  const hasil = hitungHppProduk(activeProdukId);
+  const d = produkData[activeProdukId];
+
+  (d.bahan || []).forEach(item => {
+    const cell = document.getElementById('biaya-cell-' + item.uid);
+    if (cell) cell.textContent = fmt(hasil.biayaPerBahan[item.uid] || 0);
+  });
+
+  hasilEl.innerHTML = renderHasilHppHTML(hasil, d);
+}
+
+function renderHasilHppHTML(hasil, d) {
+  return `
+    <div class="divider"></div>
+    <div class="hpp-summary">
+      <div>
+        <div class="label">HPP per Unit</div>
+        <div class="hpp-total-val">${fmt(hasil.hpp)}</div>
+      </div>
+      <div class="hpp-sub">
+        <div class="label">Harga Jual Disarankan</div>
+        <div class="hpp-sub-val">${fmt(hasil.hargaJual)}</div>
+      </div>
+    </div>
+    <div class="info-strip">
+      <span class="info-chip">Bahan: ${fmt(hasil.totalBahan)}</span>
+      <span class="info-chip">Tenaga Kerja: ${fmt(d.tk)}</span>
+      <span class="info-chip">Overhead: ${fmt(d.oh)}</span>
+      <span class="info-chip">Margin/Markup: ${d.margin}%</span>
+    </div>
+    <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-moss" onclick="openSnapshotModal()">💾 Simpan sebagai Hasil</button>
+      <button class="btn btn-ghost btn-sm" onclick="printLaporanAktif()">🖨️ Print / PDF Laporan</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportDaftarHargaJual()">⬇ Export Daftar Harga Jual (CSV)</button>
+    </div>
+  `;
+}
+
+function renderActiveProduk() {
+  const container = document.getElementById('produk-container');
+  if (!container) return;
+
+  if (activeProdukId === '__rekap__') {
+    if (!daftarProduk.length) { container.innerHTML = '<div class="empty-state">Belum ada produk.</div>'; return; }
+    container.innerHTML = `<div class="card"><h2>📊 Rekap HPP Semua Produk</h2>
+      ${daftarProduk.map(p => {
+        const hasil = hitungHppProduk(p.id);
+        return `<div class="rekap-row">
+          <div class="rekap-name">${escHtml(p.emoji||'📦')} ${escHtml(p.nama)}</div>
+          <div style="text-align:right;">
+            <div class="note">HPP: ${fmt(hasil.hpp)}</div>
+            <div class="rekap-val">${fmt(hasil.hargaJual)}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+    return;
+  }
+
+  const p = daftarProduk.find(x => x.id === activeProdukId);
+  const d = produkData[activeProdukId];
+  if (!p || !d) { container.innerHTML = '<div class="empty-state">Pilih atau tambahkan produk dulu di "Kelola Produk".</div>'; return; }
+
+  const hasil = hitungHppProduk(activeProdukId);
+
+  const bahanRows = (d.bahan || []).map(item => {
+    const b = database.find(x => x.id === item.bahanId);
+    if (!b) return `<div class="row-item"><div class="note" style="color:var(--danger)">⚠️ Bahan sudah dihapus dari database</div><div></div><div></div><div></div>
+      <button class="btn-icon" onclick="hapusBahanDariProduk(${item.uid})">🗑</button></div>`;
+    return `<div class="row-item">
+      <div><div class="bahan-nama">${escHtml(b.nama)}</div><div class="bahan-harga">${fmt(b.harga)}/${escHtml(b.satuan)}</div></div>
+      <div><input type="number" min="0" step="any" value="${item.qty}" oninput="updateBahanQty(${item.uid}, this.value)"></div>
+      <div class="note">${escHtml(b.kategori === 'lembaran' ? 'potongan dipakai' : b.kategori === 'batang' ? 'cm dipakai' : b.kategori === 'linear' ? 'meter' : b.satuan)}</div>
+      <div class="biaya-val" id="biaya-cell-${item.uid}">${fmt(hasil.biayaPerBahan[item.uid]||0)}</div>
+      <button class="btn-icon" onclick="hapusBahanDariProduk(${item.uid})" title="Hapus dari produk ini">🗑</button>
+    </div>`;
+  }).join('') || '<div class="empty-state">Belum ada bahan dipilih untuk produk ini.</div>';
+
+  container.innerHTML = `
+    <div class="card">
+      <h2>${escHtml(p.emoji||'📦')} ${escHtml(p.nama)} <span class="sub">dimensi & biaya tambahan</span></h2>
+      <div class="grid3" style="margin-bottom:14px;">
+        <div><div class="label">Panjang (cm)</div><input type="number" value="${d.panjang}" oninput="updateProdukField('panjang', this.value, true); hitungProdukAktif()"></div>
+        <div><div class="label">Lebar (cm)</div><input type="number" value="${d.lebar}" oninput="updateProdukField('lebar', this.value, true); hitungProdukAktif()"></div>
+        <div><div class="label">Tinggi (cm)</div><input type="number" value="${d.tinggi}" oninput="updateProdukField('tinggi', this.value, true); hitungProdukAktif()"></div>
+      </div>
+      <div class="grid2">
+        <div><div class="label">Tenaga Kerja Langsung (Rp/unit)</div><input type="number" value="${d.tk}" oninput="updateProdukField('tk', this.value, true); hitungProdukAktif()"></div>
+        <div><div class="label">Overhead (Rp/unit)</div><input type="number" value="${d.oh}" oninput="updateProdukField('oh', this.value, true); hitungProdukAktif()"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:10px;">
+        <h2 style="margin:0;">Bahan Baku Dipakai</h2>
+        <button class="btn btn-secondary btn-sm" onclick="showModal()">+ Pilih Bahan</button>
+      </div>
+      <div class="row-item-header"><div>Nama Bahan</div><div>Qty / Pakai</div><div>Satuan</div><div style="text-align:right">Biaya</div><div></div></div>
+      <div id="bahan-produk-list">${bahanRows}</div>
+    </div>
+
+    <div class="card">
+      <h2>Harga Jual</h2>
+      <div class="toggle-group" style="margin-bottom:16px;">
+        <button class="toggle-opt ${d.pricingMode==='margin'?'active':''}" onclick="setPricingMode('margin')">Margin Pricing</button>
+        <button class="toggle-opt ${d.pricingMode==='markup'?'active':''}" onclick="setPricingMode('markup')">Markup Pricing</button>
+      </div>
+      <div><div class="label">${d.pricingMode==='margin' ? 'Margin (%)' : 'Markup (%)'}</div>
+        <input type="number" min="0" max="99" value="${d.margin}" oninput="updateProdukField('margin', this.value, true); hitungProdukAktif()">
+      </div>
+      <div class="compare-grid">
+        <div class="compare-box ${d.pricingMode==='margin'?'highlight':''}">
+          <h4>Margin Pricing</h4>
+          <div class="compare-val">${fmt(hasil.hargaMargin)}</div>
+          <div class="compare-note">HPP ÷ (1 − margin%)</div>
+        </div>
+        <div class="compare-box ${d.pricingMode==='markup'?'highlight':''}">
+          <h4>Markup Pricing</h4>
+          <div class="compare-val">${fmt(hasil.hargaMarkup)}</div>
+          <div class="compare-note">HPP + (HPP × markup%)</div>
+        </div>
+      </div>
+      <div id="hpp-hasil-area">${renderHasilHppHTML(hasil, d)}</div>
+    </div>
+  `;
+}
+
+// ============================================================
+// MODAL PILIH BAHAN
+// ============================================================
+function showModal() {
+  document.getElementById('modal-search').value = '';
+  document.getElementById('modal').style.display = 'flex';
+  renderModal();
+}
+function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+function renderModal() {
+  const d = produkData[activeProdukId];
+  if (!d) return;
+  const q = (document.getElementById('modal-search').value||'').toLowerCase();
+  const sudah = d.bahan.map(b => b.bahanId);
+  const list = database.filter(b => b.nama.toLowerCase().includes(q) || (b.ket||'').toLowerCase().includes(q))
+                        .sort((a,b) => a.nama.localeCompare(b.nama));
+  const el = document.getElementById('modal-list');
+  if (!list.length) { el.innerHTML = '<div class="empty-state">Tidak ada bahan. Tambahkan dulu di halaman Database.</div>'; return; }
+  el.innerHTML = list.map(b => {
+    const dipilih = sudah.includes(b.id);
+    return `<div class="modal-item">
+      <div>
+        <div style="font-size:13px; font-weight:600;">${escHtml(b.nama)}</div>
+        <div class="note">${fmt(b.harga)}/${escHtml(b.satuan)}${b.ket ? ' · '+escHtml(b.ket) : ''}</div>
+      </div>
+      ${dipilih ? '<span class="note">✓ Dipilih</span>' : `<button class="btn btn-primary btn-sm" onclick="pilihBahan(${b.id})">Pilih</button>`}
+    </div>`;
+  }).join('');
+}
+
+function pilihBahan(bahanId) {
+  const d = produkData[activeProdukId];
+  if (!d) return;
+  d.bahan.push({ uid: Date.now(), bahanId, qty: 1 });
+  closeModal();
+  saveProdukKeSupabase(activeProdukId);
+  renderActiveProduk();
+}
+
+// ============================================================
+// BEP
+// ============================================================
+function renderBepSelector() {
+  const sel = document.getElementById('bep-produk-select');
+  if (!sel) return;
+  const prevVal = sel.value;
+  sel.innerHTML = daftarProduk.map(p => `<option value="${escAttr(p.id)}">${escHtml(p.emoji||'📦')} ${escHtml(p.nama)}</option>`).join('');
+  if (daftarProduk.some(p => p.id === prevVal)) sel.value = prevVal;
+}
+
+function hitungBEP() {
+  const sel = document.getElementById('bep-produk-select');
+  if (!sel || !sel.value) {
+    document.getElementById('bep-harga-jual').value = fmt(0);
+    document.getElementById('bep-hpp-unit').textContent = fmt(0);
+    document.getElementById('bep-kontribusi').textContent = fmt(0);
+    document.getElementById('bep-unit-result').textContent = '0 unit';
+    document.getElementById('bep-rupiah-result').textContent = fmt(0);
+    return;
+  }
+  const produkId = sel.value;
+  const hasil = hitungHppProduk(produkId);
+  const fixedCost = parseFloat(document.getElementById('bep-fixed-cost').value) || 0;
+
+  const kontribusi = hasil.hargaJual - hasil.hpp;
+  const bepUnit = kontribusi > 0 ? Math.ceil(fixedCost / kontribusi) : 0;
+  const bepRupiah = bepUnit * hasil.hargaJual;
+
+  document.getElementById('bep-harga-jual').value = fmt(hasil.hargaJual);
+  document.getElementById('bep-hpp-unit').textContent = fmt(hasil.hpp);
+  document.getElementById('bep-kontribusi').textContent = fmt(kontribusi);
+  document.getElementById('bep-unit-result').textContent = kontribusi > 0 ? bepUnit.toLocaleString('id-ID') + ' unit' : '∞ (rugi — harga jual ≤ HPP)';
+  document.getElementById('bep-rupiah-result').textContent = fmt(bepRupiah);
+}
+
+// ============================================================
+// PRINT LAPORAN
+// ============================================================
+function printLaporanAktif() {
+  const p = daftarProduk.find(x => x.id === activeProdukId);
+  if (!p) return;
+  const d = produkData[activeProdukId];
+  const hasil = hitungHppProduk(activeProdukId);
+
+  let bahanRows = '';
+  d.bahan.forEach(item => {
+    const b = database.find(x => x.id === item.bahanId);
+    if (!b) return;
+    const biaya = hasil.biayaPerBahan[item.uid];
+    bahanRows += `<tr><td>${escHtml(b.nama)}</td><td>${item.qty} ${escHtml(b.satuan)}</td><td>${fmt(biaya)}</td></tr>`;
+  });
+
+  const mode = d.pricingMode === 'margin' ? 'Margin Pricing' : 'Markup Pricing';
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>Laporan HPP - ${escHtml(p.nama)}</title>
+    <style>
+      body { font-family: 'Segoe UI', sans-serif; padding: 30px; color: #2b2118; }
+      h1 { font-size: 20px; border-bottom: 2px solid #A8492F; padding-bottom: 10px; }
+      table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+      th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; font-size: 13px; }
+      th { background: #F3E0D4; }
+      .summary { margin-top: 20px; font-size: 14px; }
+      .summary b { font-size: 18px; }
+      .meta { color: #6E5C4A; font-size: 12px; margin-bottom: 16px; }
+    </style></head><body>
+    <h1>Laporan HPP — ${escHtml(p.nama)}</h1>
+    <div class="meta">Dicetak pada: ${new Date().toLocaleString('id-ID')}</div>
+    <h3>Dimensi Produk</h3>
+    <p>Panjang: ${d.panjang} cm &nbsp;|&nbsp; Lebar: ${d.lebar} cm &nbsp;|&nbsp; Tinggi: ${d.tinggi} cm</p>
+    <h3>Bahan Baku</h3>
+    <table><tr><th>Nama Bahan</th><th>Qty/Pemakaian</th><th>Biaya per Unit</th></tr>${bahanRows}</table>
+    <h3>Biaya Tambahan</h3>
+    <table><tr><th>Komponen</th><th>Biaya</th></tr>
+      <tr><td>Tenaga Kerja Langsung</td><td>${fmt(d.tk)}</td></tr>
+      <tr><td>Overhead</td><td>${fmt(d.oh)}</td></tr>
+    </table>
+    <div class="summary">
+      <p>HPP per Unit: <b>${fmt(hasil.hpp)}</b></p>
+      <p>Metode Pricing: ${mode} (${d.margin}%)</p>
+      <p>Harga Jual Disarankan: <b>${fmt(hasil.hargaJual)}</b></p>
+    </div>
+    </body></html>
+  `);
+  win.document.close();
+  setTimeout(() => win.print(), 300);
+}
+
+// ============================================================
+// EXPORT DAFTAR HARGA JUAL (CSV) — produk aktif saat ini (bukan snapshot)
+// ============================================================
+function exportDaftarHargaJual() {
+  let csv = 'Nama Produk,HPP per Unit,Metode Pricing,Persentase (%),Harga Jual Disarankan\n';
+  daftarProduk.forEach(p => {
+    const d = produkData[p.id];
+    const hasil = hitungHppProduk(p.id);
+    const mode = d.pricingMode === 'margin' ? 'Margin Pricing' : 'Markup Pricing';
+    csv += `"${p.nama}",${Math.round(hasil.hpp)},"${mode}",${d.margin},${Math.round(hasil.hargaJual)}\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'daftar-harga-jual.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// RIWAYAT HASIL HPP — snapshot per varian ukuran (POIN 3)
+// Setiap "Simpan sebagai Hasil" = INSERT baru, tidak pernah menimpa.
+// Snapshot menyimpan detail bahan (nama+harga) saat itu juga, supaya
+// tetap valid & utuh meskipun bahan_baku-nya diedit/dihapus belakangan.
+// ============================================================
+function openSnapshotModal() {
+  if (!activeProdukId || activeProdukId === '__rekap__') return;
+  document.getElementById('snapshot-label-input').value = '';
+  document.getElementById('modal-snapshot').style.display = 'flex';
+}
+function closeSnapshotModal() { document.getElementById('modal-snapshot').style.display = 'none'; }
+
+async function simpanSnapshot() {
+  const p = daftarProduk.find(x => x.id === activeProdukId);
+  const d = produkData[activeProdukId];
+  if (!p || !d) return;
+  const hasil = hitungHppProduk(activeProdukId);
+  const label = document.getElementById('snapshot-label-input').value.trim();
+
+  const bahanDetail = (d.bahan || []).map(item => {
+    const b = database.find(x => x.id === item.bahanId);
+    return {
+      uid: item.uid, bahanId: item.bahanId, qty: item.qty,
+      nama: b ? b.nama : '(bahan terhapus)', kategori: b ? b.kategori : '', satuan: b ? b.satuan : '',
+      harga: b ? b.harga : 0, biaya: hasil.biayaPerBahan[item.uid] || 0,
+    };
+  });
+
+  const payload = {
+    produk_id: p.id, produk_nama: p.nama, emoji: p.emoji || '📦', label,
+    panjang: d.panjang, lebar: d.lebar, tinggi: d.tinggi, tk: d.tk, oh: d.oh,
+    margin: d.margin, pricing_mode: d.pricingMode,
+    bahan: d.bahan, bahan_detail: bahanDetail,
+    hpp: hasil.hpp, harga_jual: hasil.hargaJual, harga_margin: hasil.hargaMargin, harga_markup: hasil.hargaMarkup,
+  };
+
+  try {
+    const { data, error } = await supa.from('riwayat_hpp').insert(payload).select().single();
+    if (error) throw error;
+    snapshotList.unshift({
+      id: data.id, produkId: data.produk_id, produkNama: data.produk_nama, emoji: data.emoji, label: data.label,
+      panjang: Number(data.panjang), lebar: Number(data.lebar), tinggi: Number(data.tinggi),
+      tk: Number(data.tk), oh: Number(data.oh), margin: Number(data.margin), pricingMode: data.pricing_mode,
+      bahan: data.bahan, bahanDetail: data.bahan_detail,
+      hpp: Number(data.hpp), hargaJual: Number(data.harga_jual), hargaMargin: Number(data.harga_margin), hargaMarkup: Number(data.harga_markup),
+      createdAt: data.created_at,
+      tanggal: new Date(data.created_at).toLocaleString('id-ID', { dateStyle:'medium', timeStyle:'short' }),
+    });
+    saveLocalCache();
+    closeSnapshotModal();
+    alert(`Hasil hitung "${p.nama}" (${d.panjang}×${d.lebar}×${d.tinggi}cm) berhasil disimpan ke Riwayat Hasil HPP.`);
+  } catch(err) {
+    console.error('[HPP Kalkulator] Gagal simpan snapshot:', err);
+    alert('Gagal menyimpan hasil ke Supabase: ' + err.message);
+  }
+}
+
+function renderSnapshotFilterOptions() {
+  const sel = document.getElementById('snap-filter-produk');
+  if (!sel) return;
+  const prevVal = sel.value;
+  const namaUnik = [...new Set(snapshotList.map(s => s.produkNama))];
+  sel.innerHTML = '<option value="">Semua Produk</option>' + namaUnik.map(n => `<option value="${escAttr(n)}">${escHtml(n)}</option>`).join('');
+  if (namaUnik.includes(prevVal)) sel.value = prevVal;
+}
+
+function renderSnapshotList() {
+  const el = document.getElementById('snapshot-list');
+  if (!el) return;
+  const filterProduk = document.getElementById('snap-filter-produk')?.value || '';
+  const filterLabel = (document.getElementById('snap-filter-label')?.value || '').toLowerCase();
+
+  const list = snapshotList.filter(s => {
+    const matchProduk = !filterProduk || s.produkNama === filterProduk;
+    const matchLabel = !filterLabel || (s.label||'').toLowerCase().includes(filterLabel) || s.produkNama.toLowerCase().includes(filterLabel);
+    return matchProduk && matchLabel;
+  });
+
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state">Belum ada hasil hitung yang disimpan.<br>Buka halaman "Kalkulator HPP" → atur ukuran & bahan → klik "💾 Simpan sebagai Hasil".</div>';
+    return;
+  }
+
+  el.innerHTML = list.map(s => `
+    <div class="snap-card">
+      <div class="snap-head">
+        <div>
+          <div class="snap-title">${escHtml(s.emoji||'📦')} ${escHtml(s.produkNama)}</div>
+          <div class="snap-dim">P${s.panjang}×L${s.lebar}×T${s.tinggi} cm</div>
+          ${s.label ? `<div class="snap-label-tag">${escHtml(s.label)}</div>` : ''}
+        </div>
+        <div class="snap-figures">
+          <div class="snap-hpp">HPP: ${fmt(s.hpp)}</div>
+          <div class="snap-jual">${fmt(s.hargaJual)}</div>
+        </div>
+      </div>
+      <div class="snap-date">Disimpan: ${s.tanggal}</div>
+      <div class="snap-actions">
+        <button class="btn btn-ghost btn-sm" onclick="lihatDetailSnapshot(${s.id})">👁️ Lihat Detail</button>
+        <button class="btn btn-secondary btn-sm" onclick="lanjutkanEditSnapshot(${s.id})">✏️ Lanjut Edit sebagai Varian Baru</button>
+        <button class="btn-danger" onclick="hapusSnapshot(${s.id})">🗑 Hapus</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function lihatDetailSnapshot(id) {
+  const s = snapshotList.find(x => x.id === id);
+  if (!s) return;
+  const bahanRows = (s.bahanDetail || []).map(b =>
+    `<tr><td>${escHtml(b.nama)}</td><td>${b.qty} ${escHtml(b.satuan||'')}</td><td>${fmt(b.biaya)}</td></tr>`
+  ).join('') || '<tr><td colspan="3" class="note">Tidak ada bahan tercatat</td></tr>';
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>Detail Hasil HPP - ${escHtml(s.produkNama)}</title>
+    <style>
+      body { font-family: 'Segoe UI', sans-serif; padding: 30px; color: #2b2118; }
+      h1 { font-size: 20px; border-bottom: 2px solid #A8492F; padding-bottom: 10px; }
+      table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+      th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; font-size: 13px; }
+      th { background: #F3E0D4; }
+      .summary { margin-top: 20px; font-size: 14px; } .summary b { font-size: 18px; }
+      .meta { color: #6E5C4A; font-size: 12px; margin-bottom: 16px; }
+    </style></head><body>
+    <h1>${escHtml(s.emoji)} ${escHtml(s.produkNama)} ${s.label ? '— ' + escHtml(s.label) : ''}</h1>
+    <div class="meta">Disimpan: ${s.tanggal}</div>
+    <p>Panjang: ${s.panjang} cm &nbsp;|&nbsp; Lebar: ${s.lebar} cm &nbsp;|&nbsp; Tinggi: ${s.tinggi} cm</p>
+    <h3>Bahan Baku (harga saat disimpan)</h3>
+    <table><tr><th>Nama Bahan</th><th>Qty/Pemakaian</th><th>Biaya</th></tr>${bahanRows}</table>
+    <div class="summary">
+      <p>Tenaga Kerja: ${fmt(s.tk)} &nbsp;|&nbsp; Overhead: ${fmt(s.oh)}</p>
+      <p>HPP per Unit: <b>${fmt(s.hpp)}</b></p>
+      <p>Metode: ${s.pricingMode === 'markup' ? 'Markup' : 'Margin'} Pricing (${s.margin}%)</p>
+      <p>Harga Jual: <b>${fmt(s.hargaJual)}</b></p>
+    </div>
+    </body></html>
+  `);
+  win.document.close();
+}
+
+async function lanjutkanEditSnapshot(id) {
+  const s = snapshotList.find(x => x.id === id);
+  if (!s) return;
+  if (!confirm(`Buka ulang "${s.produkNama}" (${s.panjang}×${s.lebar}×${s.tinggi}cm) ke Kalkulator HPP untuk dilanjutkan/diedit?\n\nIni TIDAK menghapus snapshot ini — snapshot tetap tersimpan di Riwayat. Perubahan akan masuk ke kanvas kerja produk "${s.produkNama}" saat ini.`)) return;
+
+  let produkId = s.produkId;
+  let p = daftarProduk.find(x => x.id === produkId);
+
+  // Kalau produk asli sudah dihapus, buat produk baru dari snapshot ini
+  if (!p) {
+    produkId = slugifyProdukId(s.produkNama);
+    try {
+      await supa.from('produk').insert({
+        id: produkId, nama: s.produkNama, emoji: s.emoji,
+        panjang: s.panjang, lebar: s.lebar, tinggi: s.tinggi, tk: s.tk, oh: s.oh,
+        margin: s.margin, pricing_mode: s.pricingMode, bahan: [],
+      });
+      daftarProduk.push({ id: produkId, nama: s.produkNama, emoji: s.emoji });
+      produkData[produkId] = defaultProdukKosong();
+      p = daftarProduk.find(x => x.id === produkId);
+    } catch(err) {
+      alert('Gagal membuat ulang produk: ' + err.message); return;
+    }
+  }
+
+  const d = produkData[produkId];
+  d.panjang = s.panjang; d.lebar = s.lebar; d.tinggi = s.tinggi;
+  d.tk = s.tk; d.oh = s.oh; d.margin = s.margin; d.pricingMode = s.pricingMode;
+  // Re-map bahan: pakai bahanId asli kalau masih ada di database, kalau tidak skip (sudah ditandai di bahanDetail)
+  d.bahan = (s.bahan || []).filter(item => database.some(b => b.id === item.bahanId)).map(item => ({ ...item, uid: Date.now() + Math.random() }));
+
+  try {
+    await supa.from('produk').update({
+      panjang: d.panjang, lebar: d.lebar, tinggi: d.tinggi, tk: d.tk, oh: d.oh,
+      margin: d.margin, pricing_mode: d.pricingMode, bahan: d.bahan,
+    }).eq('id', produkId);
+    saveLocalCache();
+    activeProdukId = produkId;
+    const navBtnHpp = document.querySelector(".nav-btn[onclick*=\"goPage('hpp'\"]");
+    goPage('hpp', navBtnHpp);
+    renderProdukSelector();
+    renderActiveProduk();
+  } catch(err) {
+    alert('Gagal memuat ulang ke kalkulator: ' + err.message);
+  }
+}
+
+async function hapusSnapshot(id) {
+  if (!confirm('Hapus hasil hitung ini dari riwayat? Tindakan ini permanen.')) return;
+  try {
+    const { error } = await supa.from('riwayat_hpp').delete().eq('id', id);
+    if (error) throw error;
+    snapshotList = snapshotList.filter(x => x.id !== id);
+    saveLocalCache();
+    renderSnapshotList();
+  } catch(err) {
+    alert('Gagal menghapus: ' + err.message);
+  }
+}
+
+function exportSnapshotCSV() {
+  if (!snapshotList.length) { alert('Belum ada riwayat hasil HPP untuk di-export.'); return; }
+  let csv = 'Tanggal,Produk,Label,Panjang,Lebar,Tinggi,HPP per Unit,Metode Pricing,Persentase (%),Harga Jual\n';
+  snapshotList.forEach(s => {
+    const mode = s.pricingMode === 'markup' ? 'Markup' : 'Margin';
+    csv += `"${s.tanggal}","${s.produkNama}","${s.label||''}",${s.panjang},${s.lebar},${s.tinggi},${Math.round(s.hpp)},"${mode}",${s.margin},${Math.round(s.hargaJual)}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'riwayat-hasil-hpp.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function printSemuaSnapshot() {
+  if (!snapshotList.length) { alert('Belum ada riwayat hasil HPP untuk dicetak.'); return; }
+  const rows = snapshotList.map(s => `
+    <tr>
+      <td>${s.tanggal}</td>
+      <td>${escHtml(s.emoji)} ${escHtml(s.produkNama)}${s.label ? '<br><span style="color:#6E5C4A;font-size:11px;">'+escHtml(s.label)+'</span>' : ''}</td>
+      <td>${s.panjang}×${s.lebar}×${s.tinggi} cm</td>
+      <td>${fmt(s.hpp)}</td>
+      <td><b>${fmt(s.hargaJual)}</b></td>
+    </tr>
+  `).join('');
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>Riwayat Hasil HPP</title>
+    <style>
+      body { font-family: 'Segoe UI', sans-serif; padding: 30px; color: #2b2118; }
+      h1 { font-size: 20px; border-bottom: 2px solid #A8492F; padding-bottom: 10px; }
+      table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+      th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; font-size: 12.5px; }
+      th { background: #F3E0D4; }
+      .meta { color: #6E5C4A; font-size: 12px; margin-bottom: 16px; }
+    </style></head><body>
+    <h1>Riwayat Hasil Perhitungan HPP — Bengkel Multiplex</h1>
+    <div class="meta">Dicetak pada: ${new Date().toLocaleString('id-ID')} · ${snapshotList.length} entri</div>
+    <table><tr><th>Tanggal</th><th>Produk</th><th>Dimensi</th><th>HPP</th><th>Harga Jual</th></tr>${rows}</table>
+    </body></html>
+  `);
+  win.document.close();
+  setTimeout(() => win.print(), 300);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+bootApp();
+updateIsiHelperText();
+</script>
+
+</body>
+</html>
