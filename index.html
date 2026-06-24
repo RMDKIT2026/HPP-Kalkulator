@@ -931,7 +931,7 @@ function updateIsiHelperText() {
   const labelEl = document.getElementById('db-isi-label');
   const helperEl = document.getElementById('db-isi-helper');
   const teks = {
-    lembaran: ['Jumlah Potongan per Lembar', '💡 Kategori <b>Lembaran</b>: isi jumlah potongan yang bisa dihasilkan dari 1 lembar (misal 12 potong 60×20cm dari 1 lembar 122×244cm).'],
+    lembaran: ['Jumlah Potongan per Lembar (1 lapis)', '💡 Kategori <b>Lembaran</b>: isi jumlah potongan UNTUK 1 LAPIS/1 SISI yang bisa dihasilkan dari 1 lembar (misal 122×244cm dipotong jadi 60×20cm = 24 potong). Kalau produk butuh beberapa lapis (misal 2 lapis untuk tebal 4cm dari 2×18mm), jumlah lapisnya diisi di kolom <b>Qty/Pakai</b> saat memilih bahan di kalkulator — bukan di sini.'],
     batang: ['Panjang Batang (cm)', '💡 Kategori <b>Batang</b>: isi panjang total 1 batang dalam cm (misal 600 untuk batang 6 meter).'],
     pack: ['Isi per Pack (pcs)', '💡 Kategori <b>Pack</b>: isi jumlah pcs di dalam 1 pack/box (misal 100).'],
     linear: ['Isi per Satuan', '💡 Kategori <b>Linear/Meter</b>: biasanya isi 1 (harga sudah per meter).'],
@@ -1388,9 +1388,10 @@ function hitungHppProduk(produkId) {
     let biaya = 0;
 
     if (b.kategori === 'lembaran') {
-      // qty = jumlah potongan yang dipakai DARI total potongan per lembar (diisi manual di "Pakai" pada produk,
-      // sedangkan "Jumlah Potongan per Lembar" ada di database bahan sebagai b.isi).
-      // Biaya = (harga per lembar ÷ jumlah potongan per lembar) × jumlah potongan dipakai (biasanya = jumlah lapis).
+      // b.isi = jumlah potongan UNTUK 1 LAPIS/1 SISI yang dihasilkan dari 1 lembar
+      //         (misal 122x244cm dipotong jadi keping 60x20cm = 24 potong/lembar).
+      // qty   = jumlah lapis yang dipakai per unit produk (misal 2 lapis untuk tebal 4cm dari 2x18mm).
+      // Biaya = (harga per lembar ÷ potongan per lembar) × jumlah lapis dipakai.
       const potonganPerLembar = b.isi > 0 ? b.isi : 1;
       biaya = (b.harga / potonganPerLembar) * qty;
     } else if (b.kategori === 'linear') {
@@ -1559,7 +1560,7 @@ function renderActiveProduk() {
     return `<div class="row-item">
       <div><div class="bahan-nama">${escHtml(b.nama)}</div><div class="bahan-harga">${fmt(b.harga)}/${escHtml(b.satuan)}</div></div>
       <div><input type="number" min="0" step="any" value="${item.qty}" oninput="updateBahanQty(${item.uid}, this.value)"></div>
-      <div class="note">${escHtml(b.kategori === 'lembaran' ? 'potongan dipakai' : b.kategori === 'batang' ? 'cm dipakai' : b.kategori === 'linear' ? 'meter' : b.satuan)}</div>
+      <div class="note">${escHtml(b.kategori === 'lembaran' ? 'lapis dipakai' : b.kategori === 'batang' ? 'cm dipakai' : b.kategori === 'linear' ? 'meter' : b.satuan)}</div>
       <div class="biaya-val" id="biaya-cell-${item.uid}">${fmt(hasil.biayaPerBahan[item.uid]||0)}</div>
       <button class="btn-icon" onclick="hapusBahanDariProduk(${item.uid})" title="Hapus dari produk ini">🗑</button>
     </div>`;
