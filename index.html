@@ -471,13 +471,18 @@
           </select>
         </div>
         <div><div class="label">Harga (Rp)</div><input type="number" id="db-harga" placeholder="0"></div>
-        <div><div class="label" id="db-isi-label">Isi per Satuan</div><input type="number" id="db-isi" placeholder="cth: 100"></div>
+        <div id="db-isi-wrap"><div class="label" id="db-isi-label">Isi per Satuan</div><input type="number" id="db-isi" placeholder="cth: 100"></div>
         <div><div class="label">Satuan Beli</div><input type="text" id="db-satuan" placeholder="lembar/meter/pcs"></div>
       </div>
-      <div class="grid2" style="margin-bottom:6px;">
-        <div><div class="label">Keterangan (opsional)</div><input type="text" id="db-ket" placeholder="cth: ukuran 122×244cm, panjang 6m"></div>
+      <div class="grid3" id="db-lembar-ukuran-wrap" style="margin-bottom:14px;">
+        <div><div class="label">Ukuran Lembar — Panjang (cm)</div><input type="number" id="db-lembar-panjang" value="122"></div>
+        <div><div class="label">Ukuran Lembar — Lebar (cm)</div><input type="number" id="db-lembar-lebar" value="244"></div>
+        <div></div>
       </div>
-      <p class="note" id="db-isi-helper" style="margin-bottom:14px;">💡 Untuk kategori <b>Lembaran</b>: isi jumlah potongan yang bisa dihasilkan dari 1 lembar (misal 12). Untuk <b>Batang</b>: isi panjang batang dalam cm (misal 600). Untuk <b>Pack</b>: isi jumlah pcs per pack (misal 100).</p>
+      <div class="grid2" style="margin-bottom:6px;">
+        <div><div class="label">Keterangan (opsional)</div><input type="text" id="db-ket" placeholder="cth: lembar standar, atau catatan lain"></div>
+      </div>
+      <p class="note" id="db-isi-helper" style="margin-bottom:14px;">💡 Kategori <b>Lembaran</b>: jumlah potongan per lembar dihitung OTOMATIS dari Ukuran Lembar (default 122×244cm, standar Indonesia utk multiplex/triplek/blockboard/HPL) dibagi ukuran produk yang Anda hitung — tidak perlu diisi manual.</p>
       <button class="btn btn-primary" id="btn-tambah-bahan" onclick="tambahBahan()">+ Tambah ke Database</button>
     </div>
 
@@ -768,7 +773,11 @@ async function initData() {
   ]);
   if (e1) throw e1; if (e2) throw e2; if (e3) throw e3; if (e4) throw e4;
 
-  database = (bahanRows||[]).map(r => ({ id:r.id, nama:r.nama, kategori:r.kategori, harga:Number(r.harga), isi:Number(r.isi), satuan:r.satuan, ket:r.ket||'' }));
+  database = (bahanRows||[]).map(r => ({
+    id:r.id, nama:r.nama, kategori:r.kategori, harga:Number(r.harga), isi:Number(r.isi), satuan:r.satuan, ket:r.ket||'',
+    lembarPanjang: r.lembar_panjang!=null ? Number(r.lembar_panjang) : null,
+    lembarLebar: r.lembar_lebar!=null ? Number(r.lembar_lebar) : null,
+  }));
 
   daftarProduk = (produkRows||[]).map(r => ({ id:r.id, nama:r.nama, emoji:r.emoji||'📦' }));
   produkData = {};
@@ -805,15 +814,21 @@ async function initData() {
 }
 
 function sanitizeDatabase() {
-  database = (database||[]).filter(b => b && typeof b === 'object').map(b => ({
-    id: b.id,
-    nama: typeof b.nama === 'string' && b.nama.trim() ? b.nama : 'Bahan tanpa nama',
-    kategori: KATEGORI_VALID.includes(b.kategori) ? b.kategori : 'satuan',
-    harga: typeof b.harga === 'number' && !isNaN(b.harga) ? b.harga : 0,
-    isi: typeof b.isi === 'number' && !isNaN(b.isi) && b.isi > 0 ? b.isi : 1,
-    satuan: typeof b.satuan === 'string' && b.satuan ? b.satuan : 'pcs',
-    ket: typeof b.ket === 'string' ? b.ket : '',
-  }));
+  database = (database||[]).filter(b => b && typeof b === 'object').map(b => {
+    const kategori = KATEGORI_VALID.includes(b.kategori) ? b.kategori : 'satuan';
+    const isLembaran = kategori === 'lembaran';
+    return {
+      id: b.id,
+      nama: typeof b.nama === 'string' && b.nama.trim() ? b.nama : 'Bahan tanpa nama',
+      kategori,
+      harga: typeof b.harga === 'number' && !isNaN(b.harga) ? b.harga : 0,
+      isi: typeof b.isi === 'number' && !isNaN(b.isi) && b.isi > 0 ? b.isi : 1,
+      satuan: typeof b.satuan === 'string' && b.satuan ? b.satuan : 'pcs',
+      ket: typeof b.ket === 'string' ? b.ket : '',
+      lembarPanjang: isLembaran ? (typeof b.lembarPanjang === 'number' && b.lembarPanjang > 0 ? b.lembarPanjang : 122) : null,
+      lembarLebar: isLembaran ? (typeof b.lembarLebar === 'number' && b.lembarLebar > 0 ? b.lembarLebar : 244) : null,
+    };
+  });
 }
 
 function sanitizeProduk() {
@@ -870,7 +885,11 @@ async function importDataJSON(event) {
       setSyncBadge('syncing', 'Mengimpor data...');
 
       if (Array.isArray(state.database) && state.database.length) {
-        const rows = state.database.map(b => ({ nama:b.nama, kategori:b.kategori, harga:b.harga, isi:b.isi, satuan:b.satuan, ket:b.ket||'' }));
+        const rows = state.database.map(b => ({
+          nama:b.nama, kategori:b.kategori, harga:b.harga, isi:b.isi||1, satuan:b.satuan, ket:b.ket||'',
+          lembar_panjang: b.lembarPanjang ?? (b.kategori==='lembaran' ? 122 : null),
+          lembar_lebar: b.lembarLebar ?? (b.kategori==='lembaran' ? 244 : null),
+        }));
         const { error } = await supa.from('bahan_baku').insert(rows);
         if (error) throw error;
       }
@@ -930,8 +949,11 @@ function updateIsiHelperText() {
   const kat = document.getElementById('db-kategori').value;
   const labelEl = document.getElementById('db-isi-label');
   const helperEl = document.getElementById('db-isi-helper');
+  const isiWrap = document.getElementById('db-isi-wrap');
+  const lembarWrap = document.getElementById('db-lembar-ukuran-wrap');
+
   const teks = {
-    lembaran: ['Jumlah Potongan per Lembar (1 lapis)', '💡 Kategori <b>Lembaran</b>: isi jumlah potongan UNTUK 1 LAPIS/1 SISI yang bisa dihasilkan dari 1 lembar (misal 122×244cm dipotong jadi 60×20cm = 24 potong). Kalau produk butuh beberapa lapis (misal 2 lapis untuk tebal 4cm dari 2×18mm), jumlah lapisnya diisi di kolom <b>Qty/Pakai</b> saat memilih bahan di kalkulator — bukan di sini.'],
+    lembaran: ['', '💡 Kategori <b>Lembaran</b>: jumlah potongan per lembar dihitung OTOMATIS dari Ukuran Lembar (default 122×244cm, standar Indonesia utk multiplex/triplek/blockboard/HPL apa pun tebalnya) dibagi ukuran Panjang×Lebar produk yang sedang dihitung di Kalkulator HPP — tidak perlu diisi manual di sini.'],
     batang: ['Panjang Batang (cm)', '💡 Kategori <b>Batang</b>: isi panjang total 1 batang dalam cm (misal 600 untuk batang 6 meter).'],
     pack: ['Isi per Pack (pcs)', '💡 Kategori <b>Pack</b>: isi jumlah pcs di dalam 1 pack/box (misal 100).'],
     linear: ['Isi per Satuan', '💡 Kategori <b>Linear/Meter</b>: biasanya isi 1 (harga sudah per meter).'],
@@ -940,6 +962,10 @@ function updateIsiHelperText() {
   const [label, helper] = teks[kat] || teks.satuan;
   if (labelEl) labelEl.textContent = label;
   if (helperEl) helperEl.innerHTML = helper;
+
+  const isLembaran = kat === 'lembaran';
+  if (isiWrap) isiWrap.style.display = isLembaran ? 'none' : '';
+  if (lembarWrap) lembarWrap.style.display = isLembaran ? '' : 'none';
 }
 
 // ============================================================
@@ -965,16 +991,26 @@ function getFiltered() {
 async function tambahBahan() {
   const nama = document.getElementById('db-nama').value.trim();
   const harga = parseFloat(document.getElementById('db-harga').value);
+  const kategori = document.getElementById('db-kategori').value;
   if (!nama) { alert('Nama bahan wajib diisi!'); return; }
   if (!harga || harga <= 0) { alert('Harga wajib diisi dan harus lebih dari 0!'); return; }
 
-  const isi = parseFloat(document.getElementById('db-isi').value) || 1;
-  if (isi <= 0) { alert('Isi per satuan harus lebih dari 0!'); return; }
+  let isi = 1, lembarPanjang = null, lembarLebar = null;
+
+  if (kategori === 'lembaran') {
+    lembarPanjang = parseFloat(document.getElementById('db-lembar-panjang').value) || 0;
+    lembarLebar = parseFloat(document.getElementById('db-lembar-lebar').value) || 0;
+    if (lembarPanjang <= 0 || lembarLebar <= 0) { alert('Ukuran lembar (panjang & lebar) harus lebih dari 0!'); return; }
+  } else {
+    isi = parseFloat(document.getElementById('db-isi').value) || 1;
+    if (isi <= 0) { alert('Isi per satuan harus lebih dari 0!'); return; }
+  }
 
   const payload = {
-    nama, kategori: document.getElementById('db-kategori').value, harga, isi,
+    nama, kategori, harga, isi,
     satuan: document.getElementById('db-satuan').value.trim() || 'pcs',
     ket: document.getElementById('db-ket').value.trim(),
+    lembar_panjang: lembarPanjang, lembar_lebar: lembarLebar,
   };
 
   const btn = document.getElementById('btn-tambah-bahan');
@@ -982,8 +1018,15 @@ async function tambahBahan() {
   try {
     const { data, error } = await supa.from('bahan_baku').insert(payload).select().single();
     if (error) throw error;
-    database.push({ id:data.id, nama:data.nama, kategori:data.kategori, harga:Number(data.harga), isi:Number(data.isi), satuan:data.satuan, ket:data.ket||'' });
+    database.push({
+      id:data.id, nama:data.nama, kategori:data.kategori, harga:Number(data.harga), isi:Number(data.isi),
+      satuan:data.satuan, ket:data.ket||'',
+      lembarPanjang: data.lembar_panjang!=null ? Number(data.lembar_panjang) : null,
+      lembarLebar: data.lembar_lebar!=null ? Number(data.lembar_lebar) : null,
+    });
     ['db-nama','db-harga','db-isi','db-satuan','db-ket'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('db-lembar-panjang').value = 122;
+    document.getElementById('db-lembar-lebar').value = 244;
     saveLocalCache();
     renderDatabase();
   } catch(err) {
@@ -998,10 +1041,17 @@ async function duplikatBahan(id) {
   try {
     const b = database.find(x => x.id === id);
     if (!b) { alert('Bahan tidak ditemukan.'); return; }
-    const payload = { nama: b.nama + ' (copy)', kategori:b.kategori, harga:b.harga, isi:b.isi, satuan:b.satuan, ket:b.ket||'' };
+    const payload = {
+      nama: b.nama + ' (copy)', kategori:b.kategori, harga:b.harga, isi:b.isi, satuan:b.satuan, ket:b.ket||'',
+      lembar_panjang: b.lembarPanjang ?? null, lembar_lebar: b.lembarLebar ?? null,
+    };
     const { data, error } = await supa.from('bahan_baku').insert(payload).select().single();
     if (error) throw error;
-    const copy = { id:data.id, nama:data.nama, kategori:data.kategori, harga:Number(data.harga), isi:Number(data.isi), satuan:data.satuan, ket:data.ket||'' };
+    const copy = {
+      id:data.id, nama:data.nama, kategori:data.kategori, harga:Number(data.harga), isi:Number(data.isi), satuan:data.satuan, ket:data.ket||'',
+      lembarPanjang: data.lembar_panjang!=null ? Number(data.lembar_panjang) : null,
+      lembarLebar: data.lembar_lebar!=null ? Number(data.lembar_lebar) : null,
+    };
     database.push(copy);
     saveLocalCache();
     renderDatabase();
@@ -1025,6 +1075,24 @@ function cancelEdit() {
   catch (err) { console.error('[HPP Kalkulator] Gagal batal edit:', err); }
 }
 
+function toggleEditIsiUkuran(id) {
+  const b = database.find(x => x.id === id);
+  if (!b) return;
+  const katSekarang = document.getElementById('edit-kat-'+id).value;
+  const cell = document.getElementById('edit-isi-cell-'+id);
+  if (!cell) return;
+  if (katSekarang === 'lembaran') {
+    cell.innerHTML = `<div style="display:flex; gap:4px; align-items:center;">
+        <input type="number" id="edit-lembarp-${id}" value="${b.lembarPanjang||122}" style="width:60px;" title="Panjang lembar (cm)">
+        <span style="font-size:11px;color:var(--ink-soft);">×</span>
+        <input type="number" id="edit-lembarl-${id}" value="${b.lembarLebar||244}" style="width:60px;" title="Lebar lembar (cm)">
+        <span style="font-size:10px;color:var(--ink-soft);">cm</span>
+      </div>`;
+  } else {
+    cell.innerHTML = `<input type="number" id="edit-isi-${id}" value="${b.isi||1}">`;
+  }
+}
+
 async function saveEdit(id) {
   try {
     const b = database.find(x => x.id === id);
@@ -1034,32 +1102,49 @@ async function saveEdit(id) {
     const elKat = document.getElementById('edit-kat-'+id);
     const elHarga = document.getElementById('edit-harga-'+id);
     const elSatuan = document.getElementById('edit-satuan-'+id);
-    const elIsi = document.getElementById('edit-isi-'+id);
     const elKet = document.getElementById('edit-ket-'+id);
 
-    if (!elNama || !elKat || !elHarga || !elSatuan || !elIsi || !elKet) {
+    if (!elNama || !elKat || !elHarga || !elSatuan || !elKet) {
       throw new Error('Form edit tidak lengkap — beberapa kolom tidak ditemukan di halaman.');
     }
 
     const hargaBaru = parseFloat(elHarga.value);
-    const isiBaru = parseFloat(elIsi.value);
     if (isNaN(hargaBaru) || hargaBaru < 0) { alert('Harga tidak valid.'); return; }
-    if (isNaN(isiBaru) || isiBaru <= 0) { alert('Isi per satuan harus lebih dari 0.'); return; }
 
+    const kategoriBaru = elKat.value;
     const hargaLama = b.harga;
     const payload = {
       nama: elNama.value.trim() || b.nama,
-      kategori: elKat.value,
+      kategori: kategoriBaru,
       harga: hargaBaru,
       satuan: elSatuan.value.trim() || b.satuan,
-      isi: isiBaru,
       ket: elKet.value,
+      isi: b.isi || 1,
+      lembar_panjang: null, lembar_lebar: null,
     };
+
+    if (kategoriBaru === 'lembaran') {
+      const elLembarP = document.getElementById('edit-lembarp-'+id);
+      const elLembarL = document.getElementById('edit-lembarl-'+id);
+      if (!elLembarP || !elLembarL) throw new Error('Field ukuran lembar tidak ditemukan.');
+      const lp = parseFloat(elLembarP.value), ll = parseFloat(elLembarL.value);
+      if (isNaN(lp) || lp <= 0 || isNaN(ll) || ll <= 0) { alert('Ukuran lembar (panjang & lebar) harus lebih dari 0.'); return; }
+      payload.lembar_panjang = lp; payload.lembar_lebar = ll;
+      payload.isi = 1; // tidak relevan lagi utk lembaran, simpan default
+    } else {
+      const elIsi = document.getElementById('edit-isi-'+id);
+      if (!elIsi) throw new Error('Field isi tidak ditemukan.');
+      const isiBaru = parseFloat(elIsi.value);
+      if (isNaN(isiBaru) || isiBaru <= 0) { alert('Isi per satuan harus lebih dari 0.'); return; }
+      payload.isi = isiBaru;
+    }
 
     const { error } = await supa.from('bahan_baku').update(payload).eq('id', id);
     if (error) throw error;
 
-    Object.assign(b, payload);
+    b.nama = payload.nama; b.kategori = payload.kategori; b.harga = payload.harga;
+    b.satuan = payload.satuan; b.ket = payload.ket; b.isi = payload.isi;
+    b.lembarPanjang = payload.lembar_panjang; b.lembarLebar = payload.lembar_lebar;
 
     if (hargaLama !== b.harga) {
       const { data: logRow, error: e2 } = await supa.from('riwayat_harga').insert({
@@ -1162,18 +1247,27 @@ function renderDatabase() {
     const pageItems = list.slice(startIdx, startIdx + DB_PAGE_SIZE);
 
     el.innerHTML = `<table class="bahan-table">
-      <thead><tr><th>Nama Bahan</th><th>Kategori</th><th>Harga</th><th>Satuan</th><th>Isi</th><th>Keterangan</th><th style="text-align:right">Aksi</th></tr></thead>
+      <thead><tr><th>Nama Bahan</th><th>Kategori</th><th>Harga</th><th>Satuan</th><th>Isi / Ukuran Lembar</th><th>Keterangan</th><th style="text-align:right">Aksi</th></tr></thead>
       <tbody>
       ${pageItems.map(b => {
         if (editingId === b.id) {
+          const isLembaran = b.kategori === 'lembaran';
+          const isiCell = isLembaran
+            ? `<div style="display:flex; gap:4px; align-items:center;">
+                 <input type="number" id="edit-lembarp-${b.id}" value="${b.lembarPanjang||122}" style="width:60px;" title="Panjang lembar (cm)">
+                 <span style="font-size:11px;color:var(--ink-soft);">×</span>
+                 <input type="number" id="edit-lembarl-${b.id}" value="${b.lembarLebar||244}" style="width:60px;" title="Lebar lembar (cm)">
+                 <span style="font-size:10px;color:var(--ink-soft);">cm</span>
+               </div>`
+            : `<input type="number" id="edit-isi-${b.id}" value="${b.isi}">`;
           return `<tr class="editing">
             <td><input id="edit-nama-${b.id}" value="${escAttr(b.nama)}"></td>
-            <td><select id="edit-kat-${b.id}">
+            <td><select id="edit-kat-${b.id}" onchange="toggleEditIsiUkuran(${b.id})">
               ${KATEGORI_VALID.map(k => `<option value="${k}" ${b.kategori===k?'selected':''}>${catLabel[k]}</option>`).join('')}
             </select></td>
             <td><input type="number" id="edit-harga-${b.id}" value="${b.harga}"></td>
             <td><input id="edit-satuan-${b.id}" value="${escAttr(b.satuan)}" placeholder="lembar/meter/pcs"></td>
-            <td><input type="number" id="edit-isi-${b.id}" value="${b.isi}"></td>
+            <td id="edit-isi-cell-${b.id}">${isiCell}</td>
             <td><input id="edit-ket-${b.id}" value="${escAttr(b.ket||'')}" placeholder="keterangan"></td>
             <td style="text-align:right; white-space:nowrap;">
               <button type="button" class="btn btn-primary btn-sm" onclick="saveEdit(${b.id})">✓ Simpan</button>
@@ -1181,12 +1275,15 @@ function renderDatabase() {
             </td>
           </tr>`;
         }
+        const isiTampil = b.kategori === 'lembaran'
+          ? `${b.lembarPanjang||122}×${b.lembarLebar||244}cm`
+          : (b.isi > 1 ? b.isi+' pcs' : '-');
         return `<tr>
           <td><strong>${escHtml(b.nama)}</strong></td>
           <td><span class="badge ${catClass[b.kategori]||''}">${catLabel[b.kategori]||b.kategori}</span></td>
           <td>${fmt(b.harga)}</td>
           <td class="note">${escHtml(b.satuan)}</td>
-          <td class="note">${b.isi > 1 ? b.isi+' pcs' : '-'}</td>
+          <td class="note">${isiTampil}</td>
           <td class="note">${escHtml(b.ket||'-')}</td>
           <td style="text-align:right; white-space:nowrap;">
             <button type="button" class="btn-icon" onclick="duplikatBahan(${b.id})" title="Duplikat bahan ini">⧉ Duplikat</button>
@@ -1374,12 +1471,37 @@ function switchProdukDropdown() {
 // ============================================================
 // KALKULASI HPP — generik untuk semua produk
 // ============================================================
+// ============================================================
+// Hitung jumlah potongan per lembar (otomatis, 2 orientasi, ambil yang terbanyak)
+// + info sisa/waste material — supaya transparan, bukan kotak hitam.
+// ============================================================
+function hitungPotonganPerLembar(lembarP, lembarL, potP, potL) {
+  lembarP = Number(lembarP) || 0; lembarL = Number(lembarL) || 0;
+  potP = Number(potP) || 0; potL = Number(potL) || 0;
+  if (lembarP <= 0 || lembarL <= 0 || potP <= 0 || potL <= 0) {
+    return { jumlah: 0, orientasi: null, luasLembar: 0, luasTerpakai: 0, luasWaste: 0, persenWaste: 0 };
+  }
+
+  const jumlahA = Math.floor(lembarP / potP) * Math.floor(lembarL / potL);
+  const jumlahB = Math.floor(lembarP / potL) * Math.floor(lembarL / potP);
+  const pakaiA = jumlahA >= jumlahB;
+  const jumlah = pakaiA ? jumlahA : jumlahB;
+
+  const luasLembar = lembarP * lembarL;
+  const luasTerpakai = jumlah * (potP * potL);
+  const luasWaste = Math.max(0, luasLembar - luasTerpakai);
+  const persenWaste = luasLembar > 0 ? (luasWaste / luasLembar) * 100 : 0;
+
+  return { jumlah, orientasi: pakaiA ? 'A' : 'B', luasLembar, luasTerpakai, luasWaste, persenWaste };
+}
+
 function hitungHppProduk(produkId) {
   const d = produkData[produkId];
-  if (!d) return { hpp:0, hargaJual:0, hargaMargin:0, hargaMarkup:0, biayaPerBahan:{} };
+  if (!d) return { hpp:0, hargaJual:0, hargaMargin:0, hargaMarkup:0, biayaPerBahan:{}, infoLembar:{} };
 
   let totalBahan = 0;
   const biayaPerBahan = {};
+  const infoLembar = {}; // simpan info potongan+waste per item, utk ditampilkan di UI
 
   (d.bahan || []).forEach(item => {
     const b = database.find(x => x.id === item.bahanId);
@@ -1388,11 +1510,13 @@ function hitungHppProduk(produkId) {
     let biaya = 0;
 
     if (b.kategori === 'lembaran') {
-      // b.isi = jumlah potongan UNTUK 1 LAPIS/1 SISI yang dihasilkan dari 1 lembar
-      //         (misal 122x244cm dipotong jadi keping 60x20cm = 24 potong/lembar).
-      // qty   = jumlah lapis yang dipakai per unit produk (misal 2 lapis untuk tebal 4cm dari 2x18mm).
-      // Biaya = (harga per lembar ÷ potongan per lembar) × jumlah lapis dipakai.
-      const potonganPerLembar = b.isi > 0 ? b.isi : 1;
+      // Jumlah potongan per lembar dihitung OTOMATIS dari ukuran lembar bahan
+      // (b.lembarPanjang x b.lembarLebar, default 122x244cm) dibagi ukuran
+      // Panjang x Lebar produk yang sedang dihitung (d.panjang x d.lebar).
+      // qty = jumlah lapis yang dipakai per unit produk (misal 2 lapis utk tebal 4cm dari 2x18mm).
+      const info = hitungPotonganPerLembar(b.lembarPanjang || 122, b.lembarLebar || 244, d.panjang, d.lebar);
+      infoLembar[item.uid] = info;
+      const potonganPerLembar = info.jumlah > 0 ? info.jumlah : 1;
       biaya = (b.harga / potonganPerLembar) * qty;
     } else if (b.kategori === 'linear') {
       biaya = b.harga * qty; // qty = meter dipakai
@@ -1420,7 +1544,7 @@ function hitungHppProduk(produkId) {
   const hargaMarkup = hpp + (hpp * margin/100);
   const hargaJual = d.pricingMode === 'markup' ? hargaMarkup : hargaMargin;
 
-  return { hpp, hargaJual, hargaMargin, hargaMarkup, totalBahan, tk, oh, biayaPerBahan };
+  return { hpp, hargaJual, hargaMargin, hargaMarkup, totalBahan, tk, oh, biayaPerBahan, infoLembar };
 }
 
 // ============================================================
@@ -1557,8 +1681,20 @@ function renderActiveProduk() {
     const b = database.find(x => x.id === item.bahanId);
     if (!b) return `<div class="row-item"><div class="note" style="color:var(--danger)">⚠️ Bahan sudah dihapus dari database</div><div></div><div></div><div></div>
       <button class="btn-icon" onclick="hapusBahanDariProduk(${item.uid})">🗑</button></div>`;
+
+    let infoTambahan = '';
+    if (b.kategori === 'lembaran') {
+      const info = hasil.infoLembar[item.uid];
+      if (info && info.jumlah > 0) {
+        const wasteWarn = info.persenWaste >= 15 ? ' style="color:var(--danger); font-weight:600;"' : '';
+        infoTambahan = `<div class="bahan-harga">📐 lembar ${b.lembarPanjang||122}×${b.lembarLebar||244}cm → <b>${info.jumlah} potong</b>/lembar (${d.panjang||0}×${d.lebar||0}cm) · <span${wasteWarn}>sisa/waste ${info.persenWaste.toFixed(1)}%</span></div>`;
+      } else {
+        infoTambahan = `<div class="bahan-harga" style="color:var(--danger);">⚠️ Isi Panjang & Lebar produk dulu (di atas) untuk hitung otomatis jumlah potongan</div>`;
+      }
+    }
+
     return `<div class="row-item">
-      <div><div class="bahan-nama">${escHtml(b.nama)}</div><div class="bahan-harga">${fmt(b.harga)}/${escHtml(b.satuan)}</div></div>
+      <div><div class="bahan-nama">${escHtml(b.nama)}</div><div class="bahan-harga">${fmt(b.harga)}/${escHtml(b.satuan)}</div>${infoTambahan}</div>
       <div><input type="number" min="0" step="any" value="${item.qty}" oninput="updateBahanQty(${item.uid}, this.value)"></div>
       <div class="note">${escHtml(b.kategori === 'lembaran' ? 'lapis dipakai' : b.kategori === 'batang' ? 'cm dipakai' : b.kategori === 'linear' ? 'meter' : b.satuan)}</div>
       <div class="biaya-val" id="biaya-cell-${item.uid}">${fmt(hasil.biayaPerBahan[item.uid]||0)}</div>
@@ -1705,7 +1841,12 @@ function printLaporanAktif() {
     const b = database.find(x => x.id === item.bahanId);
     if (!b) return;
     const biaya = hasil.biayaPerBahan[item.uid];
-    bahanRows += `<tr><td>${escHtml(b.nama)}</td><td>${item.qty} ${escHtml(b.satuan)}</td><td>${fmt(biaya)}</td></tr>`;
+    let infoPotongan = '-';
+    if (b.kategori === 'lembaran') {
+      const info = hasil.infoLembar[item.uid];
+      infoPotongan = info && info.jumlah > 0 ? `${info.jumlah} potong/lembar (waste ${info.persenWaste.toFixed(1)}%)` : 'belum terhitung';
+    }
+    bahanRows += `<tr><td>${escHtml(b.nama)}</td><td>${item.qty} ${escHtml(b.satuan)}</td><td>${infoPotongan}</td><td>${fmt(biaya)}</td></tr>`;
   });
 
   const mode = d.pricingMode === 'margin' ? 'Margin Pricing' : 'Markup Pricing';
@@ -1727,7 +1868,7 @@ function printLaporanAktif() {
     <h3>Dimensi Produk</h3>
     <p>Panjang: ${d.panjang} cm &nbsp;|&nbsp; Lebar: ${d.lebar} cm &nbsp;|&nbsp; Tinggi: ${d.tinggi} cm</p>
     <h3>Bahan Baku</h3>
-    <table><tr><th>Nama Bahan</th><th>Qty/Pemakaian</th><th>Biaya per Unit</th></tr>${bahanRows}</table>
+    <table><tr><th>Nama Bahan</th><th>Qty/Pemakaian</th><th>Detail Potongan</th><th>Biaya per Unit</th></tr>${bahanRows}</table>
     <h3>Biaya Tambahan</h3>
     <table><tr><th>Komponen</th><th>Biaya</th></tr>
       <tr><td>Tenaga Kerja Langsung</td><td>${fmt(d.tk)}</td></tr>
@@ -1786,10 +1927,12 @@ async function simpanSnapshot() {
 
   const bahanDetail = (d.bahan || []).map(item => {
     const b = database.find(x => x.id === item.bahanId);
+    const info = hasil.infoLembar ? hasil.infoLembar[item.uid] : null;
     return {
       uid: item.uid, bahanId: item.bahanId, qty: item.qty,
       nama: b ? b.nama : '(bahan terhapus)', kategori: b ? b.kategori : '', satuan: b ? b.satuan : '',
       harga: b ? b.harga : 0, biaya: hasil.biayaPerBahan[item.uid] || 0,
+      potonganPerLembar: info ? info.jumlah : null, persenWaste: info ? Math.round(info.persenWaste*10)/10 : null,
     };
   });
 
@@ -1874,9 +2017,10 @@ function renderSnapshotList() {
 function lihatDetailSnapshot(id) {
   const s = snapshotList.find(x => x.id === id);
   if (!s) return;
-  const bahanRows = (s.bahanDetail || []).map(b =>
-    `<tr><td>${escHtml(b.nama)}</td><td>${b.qty} ${escHtml(b.satuan||'')}</td><td>${fmt(b.biaya)}</td></tr>`
-  ).join('') || '<tr><td colspan="3" class="note">Tidak ada bahan tercatat</td></tr>';
+  const bahanRows = (s.bahanDetail || []).map(b => {
+    const infoPotongan = b.potonganPerLembar ? `${b.potonganPerLembar} potong/lembar (waste ${b.persenWaste}%)` : '-';
+    return `<tr><td>${escHtml(b.nama)}</td><td>${b.qty} ${escHtml(b.satuan||'')}</td><td class="note">${infoPotongan}</td><td>${fmt(b.biaya)}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" class="note">Tidak ada bahan tercatat</td></tr>';
 
   const win = window.open('', '_blank');
   win.document.write(`
@@ -1894,7 +2038,7 @@ function lihatDetailSnapshot(id) {
     <div class="meta">Disimpan: ${s.tanggal}</div>
     <p>Panjang: ${s.panjang} cm &nbsp;|&nbsp; Lebar: ${s.lebar} cm &nbsp;|&nbsp; Tinggi: ${s.tinggi} cm</p>
     <h3>Bahan Baku (harga saat disimpan)</h3>
-    <table><tr><th>Nama Bahan</th><th>Qty/Pemakaian</th><th>Biaya</th></tr>${bahanRows}</table>
+    <table><tr><th>Nama Bahan</th><th>Qty/Pemakaian</th><th>Detail Potongan</th><th>Biaya</th></tr>${bahanRows}</table>
     <div class="summary">
       <p>Tenaga Kerja: ${fmt(s.tk)} &nbsp;|&nbsp; Overhead: ${fmt(s.oh)}</p>
       <p>HPP per Unit: <b>${fmt(s.hpp)}</b></p>
